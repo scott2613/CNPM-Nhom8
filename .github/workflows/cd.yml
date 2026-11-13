@@ -1,0 +1,62 @@
+name: CD
+on:
+  workflow_dispatch:
+    inputs:
+      backup_confirmed_at:
+        description: Timestamp of a verified restorable SQL backup
+        required: true
+permissions:
+  contents: read
+  packages: write
+  actions: read
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore AudioGuideSolution.sln --locked-mode
+      - run: dotnet test AudioGuide.Tests -c Release -m:1
+      - name: Require successful CI on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&status=success" --jq '.total_count' | python3 -c 'import sys; assert int(sys.stdin.read())>0, "No successful CI for this commit"'
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push immutable release
+        id: images
+        shell: bash
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker build -t "$repo-api:${GITHUB_SHA}" .
+          docker build -f Dockerfile.admin -t "$repo-admin:${GITHUB_SHA}" .
+          docker push "$repo-api:${GITHUB_SHA}"
+          docker push "$repo-admin:${GITHUB_SHA}"
+          echo "api=$(docker inspect --format '{{index .RepoDigests 0}}' "$repo-api:${GITHUB_SHA}")" >> "$GITHUB_OUTPUT"
+          echo "admin=$(docker inspect --format '{{index .RepoDigests 0}}' "$repo-admin:${GITHUB_SHA}")" >> "$GITHUB_OUTPUT"
+      - name: Deploy to configured host
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          API_IMAGE: ${{ steps.images.outputs.api }}
+          ADMIN_IMAGE: ${{ steps.images.outputs.admin }}
+          BACKUP_AT: ${{ inputs.backup_confirmed_at }}
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          scp compose.yaml scripts/deploy.sh "$DEPLOY_USER@$DEPLOY_HOST:/opt/audioguide/"
+          printf -v cmd 'cd /opt/audioguide && BACKUP_CONFIRMED_AT=%q bash deploy.sh %q %q' "$BACKUP_AT" "$API_IMAGE" "$ADMIN_IMAGE"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "$cmd"

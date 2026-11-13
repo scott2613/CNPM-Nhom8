@@ -1,0 +1,22 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Lỗi Hệ Thống";
+}
+
+<h1 class="text-danger">Lỗi Hệ Thống</h1>
+<h2 class="text-danger">Đã xảy ra sự cố trong quá trình xử lý yêu cầu của bạn.</h2>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Mã Yêu Cầu (Request ID):</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<h3>Chế Độ Phát Triển (Development Mode)</h3>
+<p>
+    Chuyển sang môi trường <strong>Development</strong> sẽ hiển thị thông tin chi tiết hơn về lỗi đã xảy ra.
+</p>
+<p>
+    <strong>Môi trường Development không nên được bật cho các ứng dụng đã triển khai thực tế</strong> vì có thể làm lộ thông tin nhạy cảm từ các ngoại lệ hệ thống tới người dùng cuối.
+</p>

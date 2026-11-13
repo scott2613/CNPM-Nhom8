@@ -1,0 +1,6 @@
+@AudioGuide.API_HostAddress = http://192.168.110.5:5045
+
+GET {{AudioGuide.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

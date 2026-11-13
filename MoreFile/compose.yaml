@@ -1,0 +1,24 @@
+services:
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE}
+    restart: unless-stopped
+    env_file: .env.runtime
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DataProtection__KeyPath: /home/app/.aspnet/DataProtection-Keys
+    ports: ["127.0.0.1:8080:8080"]
+    volumes: ["api_keys:/home/app/.aspnet/DataProtection-Keys"]
+  admin:
+    image: ${ADMIN_IMAGE:?Set ADMIN_IMAGE}
+    restart: unless-stopped
+    env_file: .env.runtime
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ApiSettings__BaseUrl: http://api:8080
+      DataProtection__KeyPath: /home/app/.aspnet/DataProtection-Keys
+    ports: ["127.0.0.1:8081:8080"]
+    volumes: ["admin_keys:/home/app/.aspnet/DataProtection-Keys"]
+    depends_on: [api]
+volumes:
+  api_keys:
+  admin_keys:

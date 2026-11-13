@@ -1,0 +1,2621 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f1f7fc">
+    <title>Audio Guide API Console</title>
+
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #0284c7;
+            --blue: #0d6efd;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: rgba(255, 255, 255, .95);
+            --shadow: 0 14px 32px -6px rgba(15, 23, 42, .05), inset 0 2px 4px rgba(255, 255, 255, .95);
+            --ease: cubic-bezier(.32, .72, 0, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #b9e1fe 0%, #e2f1fe 35%, #fff 65%, #cde7fd 100%);
+            background-attachment: fixed;
+        }
+
+        button, input, select {
+            font: inherit;
+        }
+
+        button, a {
+            touch-action: manipulation;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+            button:disabled {
+                cursor: not-allowed;
+                opacity: .55;
+            }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        h1, h2, h3, p {
+            margin: 0;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 3px solid #38bdf8;
+            outline-offset: 4px;
+        }
+
+        .mono {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .blue {
+            color: var(--blue);
+        }
+
+        .green {
+            color: #198754;
+        }
+
+        .amber {
+            color: #b77900;
+        }
+
+        .glass {
+            background: linear-gradient(135deg, #ffffffa6, #ffffff47);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border: 1.5px solid var(--border);
+            border-radius: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        /* Thanh điều hướng */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: #ffffffbf;
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-bottom: 1px solid white;
+            box-shadow: 0 8px 24px #0f172a08;
+        }
+
+        .navbar {
+            min-height: 66px;
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -.6px;
+        }
+
+        .brand-icon, .back-button {
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            border: 1.5px solid white;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffffffd9, #ffffff73);
+            color: var(--primary);
+            box-shadow: 0 8px 20px -4px #0284c726, inset 0 2px 4px white;
+        }
+
+        .brand-icon {
+            width: 38px;
+            height: 38px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 40px;
+            padding: 8px 18px;
+            border: 1.5px solid transparent;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            transition: .25s var(--ease);
+        }
+
+            .nav-link:hover, .nav-link.active {
+                color: var(--primary);
+                border-color: white;
+                background: linear-gradient(135deg, #ffffffd9, #ffffff73);
+                box-shadow: 0 8px 20px -4px #0284c726, inset 0 2px 4px white;
+            }
+
+        .container {
+            padding: 0 48px 30px;
+        }
+
+        .heading {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 36px 0 24px;
+        }
+
+        .back-button {
+            width: 44px;
+            height: 44px;
+            font-size: 19px;
+            transition: .25s var(--ease);
+        }
+
+            .back-button:hover {
+                transform: translateX(-3px) scale(1.05);
+            }
+
+        h1 {
+            font-size: clamp(22px, 2.2vw, 32px);
+            font-weight: 800;
+            line-height: 1.35;
+            letter-spacing: -.8px;
+        }
+
+            h1 i {
+                color: var(--blue);
+                margin-right: 8px;
+            }
+
+        .heading p {
+            margin-top: 4px;
+            color: #6c757d;
+        }
+
+        /* Các thẻ cùng kiểu admin */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-height: 88px;
+            padding: 16px;
+            transition: transform .25s var(--ease), box-shadow .25s ease;
+        }
+
+            .stat:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 20px 40px -8px #0f172a14, inset 0 2px 4px white;
+            }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            border: 1.5px solid white;
+            border-radius: 20px;
+            font-size: 22px;
+        }
+
+        .icon-blue {
+            background: #0d6efd1a;
+            color: #0d6efd;
+        }
+
+        .icon-green {
+            background: #1987541a;
+            color: #198754;
+        }
+
+        .icon-yellow {
+            background: #ffc1071a;
+            color: #d9a000;
+        }
+
+        .icon-cyan {
+            background: #0dcaf01a;
+            color: #06b6d4;
+        }
+
+        .stat-label {
+            font-family: ui-monospace, Consolas, monospace;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #6c757d;
+        }
+
+        .stat-value {
+            font-size: 25px;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-top: 3px;
+        }
+
+        .stat-text {
+            font-size: 17px;
+            color: var(--primary);
+        }
+
+        /* Nút kính và thanh thao tác */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 44px;
+            padding: 9px 20px;
+            border: 1.5px solid white;
+            border-radius: 999px;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            background: linear-gradient(135deg, #ffffffb3, #ffffff40 50%, #ffffff80);
+            backdrop-filter: blur(22px) saturate(240%);
+            -webkit-backdrop-filter: blur(22px) saturate(240%);
+            box-shadow: 0 8px 20px -4px #0f172a0f, inset 0 2.5px 4px white;
+            transition: transform .25s var(--ease), box-shadow .25s ease, background .2s;
+        }
+
+            .btn:hover:not(:disabled) {
+                transform: translateY(-2px);
+                color: var(--primary);
+                background: white;
+                box-shadow: 0 14px 28px -4px #0284c72e;
+            }
+
+        .btn-primary {
+            color: #0369a1;
+            border-color: #ffffffed;
+            box-shadow: 0 12px 26px -4px #0284c73b, inset 0 2px 4px #fff;
+        }
+
+        .btn-small {
+            min-height: 36px;
+            padding: 6px 13px;
+            font-size: 11px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .search {
+            position: relative;
+            width: 440px;
+            max-width: 100%;
+        }
+
+            .search > i {
+                position: absolute;
+                left: 17px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--primary);
+            }
+
+            .search input {
+                width: 100%;
+                min-height: 44px;
+                padding: 10px 42px;
+                border: 2px solid #93c5fd;
+                border-radius: 999px;
+                color: #334155;
+                font-size: 12px;
+                font-weight: 600;
+                background: #fffffff5;
+                box-shadow: 0 8px 20px -4px #0284c71a, inset 0 2px 4px white;
+                transition: .25s ease;
+            }
+
+                .search input:focus {
+                    outline: none;
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 4px #0284c71f;
+                }
+
+        .clear-search {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            border: 0;
+            border-radius: 50%;
+            color: #64748b;
+            background: #e2e8f0;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Bảng và tham số */
+        .workspace {
+            padding: 24px;
+            border-radius: 34px;
+            scroll-margin-top: 90px;
+        }
+
+        .workspace-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+            .workspace-head h2 {
+                font-size: 16px;
+            }
+
+            .workspace-head p {
+                color: var(--muted);
+                font-size: 12px;
+                margin-top: 3px;
+            }
+
+        .host-chip {
+            max-width: 45%;
+            padding: 7px 12px;
+            border: 1px solid white;
+            border-radius: 999px;
+            background: #ffffff80;
+            color: #475569;
+            font-size: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #ffffffc9;
+            font-size: 12px;
+        }
+
+        th {
+            padding: 16px 18px;
+            color: #52637c;
+            background: #ffffffad;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 15px 18px;
+            border-top: 1px solid #e2e8f066;
+            transition: background .2s ease;
+        }
+
+        tbody tr:hover td {
+            background: #e0f2fe40;
+        }
+
+        tbody tr.selected td {
+            background: #e0f2fe70;
+        }
+
+            tbody tr.selected td:first-child {
+                box-shadow: inset 3px 0 #0ea5e9;
+            }
+
+        .method {
+            display: inline-block;
+            padding: 3px 9px;
+            border: 1px solid #a7f3d0;
+            border-radius: 8px;
+            color: #15803d;
+            background: #ecfdf5;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .endpoint-path {
+            color: #0369a1;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .row-description {
+            color: #64748b;
+        }
+
+        .selected-label {
+            color: #0284c7;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .form-section {
+            min-width: 0;
+            padding: 22px;
+            background: #ffffff9c;
+            border: 1px solid white;
+            border-radius: 24px;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+            .section-heading i {
+                color: var(--primary);
+            }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+            .field:last-child {
+                margin-bottom: 0;
+            }
+
+        .field-label {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+            .field-label code {
+                color: #94a3b8;
+                font-size: 10px;
+                font-weight: 400;
+            }
+
+        .input, select {
+            width: 100%;
+            min-height: 46px;
+            padding: 11px 13px;
+            color: #334155;
+            background: #fffffff0;
+            border: 1.5px solid #cbd5e199;
+            border-radius: 14px;
+            font-size: 12px;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+            .input:focus, select:focus {
+                outline: none;
+                border-color: #38bdf8;
+                box-shadow: 0 0 0 4px #0ea5e91a;
+            }
+
+        .hint {
+            margin-top: 7px;
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        .languages {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 7px;
+        }
+
+        .language {
+            min-height: 54px;
+            padding: 7px 3px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            background: #f5f9fc;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+            transition: .2s ease;
+        }
+
+            .language small {
+                display: block;
+                font-size: 9px;
+                font-weight: 500;
+            }
+
+            .language[aria-pressed="true"] {
+                color: #0284c7;
+                background: linear-gradient(135deg, white, #e0f2fe);
+                border-color: #7dd3fc;
+                box-shadow: inset 0 2px 4px white;
+            }
+
+        .toggle-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px;
+            border: 1px solid #e2e8f080;
+            border-radius: 17px;
+            background: #f1f7fc80;
+        }
+
+            .toggle-card strong {
+                font-size: 12px;
+            }
+
+            .toggle-card p {
+                margin-top: 3px;
+                color: #64748b;
+                font-size: 11px;
+            }
+
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+            .switch input {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                opacity: 0;
+                z-index: 1;
+                cursor: pointer;
+            }
+
+        .track {
+            display: block;
+            height: 26px;
+            border-radius: 999px;
+            background: #b6c8d6;
+            transition: .25s ease;
+        }
+
+            .track::after {
+                content: "";
+                position: absolute;
+                left: 3px;
+                top: 3px;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: white;
+                box-shadow: 0 2px 5px #0002;
+                transition: .25s var(--ease);
+            }
+
+        .switch input:checked + .track {
+            background: #0ea5e9;
+        }
+
+            .switch input:checked + .track::after {
+                transform: translateX(18px);
+            }
+
+        .switch input:focus-visible + .track {
+            outline: 3px solid #38bdf8;
+            outline-offset: 4px;
+        }
+
+        .code-box {
+            margin: 0;
+            padding: 15px;
+            min-height: 105px;
+            background: #f3f8fc;
+            border: 1px solid #e2e8f080;
+            border-radius: 15px;
+            color: #0369a1;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: 11px;
+            line-height: 1.9;
+        }
+
+        .request-url {
+            min-height: 66px;
+            margin-bottom: 14px;
+        }
+
+        .request-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .health-note {
+            padding: 18px;
+            background: #ecfdf580;
+            border: 1px solid #a7f3d080;
+            border-radius: 16px;
+            color: #166534;
+            font-size: 12px;
+        }
+
+        /* Kết quả */
+        .response-panel {
+            margin-top: 24px;
+            padding: 24px;
+            scroll-margin-top: 90px;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .response-title {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+            .response-title i {
+                color: var(--primary);
+            }
+
+            .response-title h2 {
+                font-size: 16px;
+            }
+
+        .response-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+            .badge.success {
+                background: #ecfdf5;
+                color: #15803d;
+                border-color: #a7f3d0;
+            }
+
+            .badge.error {
+                background: #fff1f2;
+                color: #be123c;
+                border-color: #fecdd3;
+            }
+
+            .badge.pending {
+                background: #eff6ff;
+                color: #0369a1;
+                border-color: #bae6fd;
+            }
+
+        .response-content {
+            min-height: 240px;
+            background: #ffffffa6;
+            border: 1px solid white;
+            border-radius: 22px;
+            overflow: hidden;
+        }
+
+        .empty-state {
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+            padding: 26px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            display: grid;
+            place-items: center;
+            width: 54px;
+            height: 54px;
+            margin-bottom: 6px;
+            border: 1.5px solid white;
+            border-radius: 20px;
+            background: #e0f2fe80;
+            color: var(--primary);
+            font-size: 22px;
+            box-shadow: var(--shadow);
+        }
+
+        .empty-state strong {
+            font-size: 13px;
+        }
+
+        .empty-state p {
+            max-width: 430px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        #liveFrame {
+            display: block;
+            width: 100%;
+            height: 580px;
+            border: 0;
+            background: white;
+        }
+
+        #responseText {
+            margin: 0;
+            padding: 22px;
+            max-height: 580px;
+            overflow: auto;
+            color: #334155;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        #responseImage {
+            display: block;
+            max-width: min(100%, 500px);
+            max-height: 500px;
+            margin: 24px auto;
+        }
+
+        /* Modal có chuyển tiếp giống admin */
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, .22);
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            opacity: 0;
+            transition: opacity .3s ease;
+        }
+
+            .modal.show {
+                opacity: 1;
+            }
+
+        .modal-dialog {
+            width: 580px;
+            max-width: 100%;
+            max-height: calc(100dvh - 40px);
+            overflow-y: auto;
+            background: linear-gradient(135deg, #ffffffe8, #ffffffbd);
+            backdrop-filter: blur(32px) saturate(170%);
+            -webkit-backdrop-filter: blur(32px) saturate(170%);
+            border: 1.5px solid white;
+            border-radius: 36px;
+            box-shadow: 0 28px 70px -15px #0f172a26, inset 0 3px 6px white;
+            opacity: 0;
+            transform: scale(.88) translateY(28px);
+            transition: transform .38s var(--ease), opacity .3s ease;
+        }
+
+        .modal.show .modal-dialog {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 22px 26px;
+            border-bottom: 1.5px solid #ffffff80;
+        }
+
+            .modal-header h2 {
+                font-size: 17px;
+            }
+
+                .modal-header h2 i {
+                    color: var(--primary);
+                    margin-right: 8px;
+                }
+
+        .close-button {
+            width: 36px;
+            min-height: 36px;
+            padding: 0;
+        }
+
+        .modal-body {
+            padding: 24px 26px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 18px 26px;
+            border-top: 1.5px solid #ffffff80;
+        }
+
+        .host-modes {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .host-mode {
+            padding: 12px 6px;
+            border: 1.5px solid white;
+            border-radius: 16px;
+            background: #ffffff80;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+            .host-mode i {
+                display: block;
+                margin-bottom: 5px;
+                font-size: 18px;
+            }
+
+            .host-mode[aria-pressed="true"] {
+                background: #e0f2fe;
+                border-color: #7dd3fc;
+                color: #0284c7;
+            }
+
+        .connection-result {
+            padding: 13px;
+            margin-top: 14px;
+            background: #f1f5f9aa;
+            border: 1px solid white;
+            border-radius: 14px;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .qr-body {
+            text-align: center;
+        }
+
+        .qr-frame {
+            display: inline-block;
+            margin: 4px 0 16px;
+            padding: 24px;
+            background: white;
+            border-radius: 26px;
+            box-shadow: 0 16px 35px -15px #0f172a33;
+        }
+
+        #qrBox {
+            width: 220px;
+            height: 220px;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+        }
+
+            #qrBox img, #qrBox canvas {
+                max-width: 100%;
+            }
+
+        .qr-token {
+            color: #0284c7;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .qr-url {
+            margin-top: 14px;
+            text-align: left;
+            min-height: 0;
+            font-size: 10px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            z-index: 100;
+            max-width: calc(100vw - 32px);
+            padding: 12px 20px;
+            transform: translate(-50%, 15px);
+            background: #203f53;
+            color: white;
+            border: 1px solid #ffffff66;
+            border-radius: 17px;
+            box-shadow: 0 12px 30px #203f5333;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0;
+            transition: .25s ease;
+        }
+
+            .toast.show {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 22px;
+            color: #64748b;
+            font-size: 10px;
+        }
+
+        .reveal {
+            animation: reveal .5s var(--ease) both;
+        }
+
+        .delay-1 {
+            animation-delay: .05s;
+        }
+
+        .delay-2 {
+            animation-delay: .1s;
+        }
+
+        .delay-3 {
+            animation-delay: .15s;
+        }
+
+        .changing {
+            animation: reveal .3s var(--ease);
+        }
+
+        .spin {
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @supports not (backdrop-filter: blur(1px)) {
+            .glass, .topbar, .modal-dialog {
+                background: #f5faff;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .container {
+                padding: 0 26px 26px;
+            }
+
+            .nav-links {
+                gap: 2px;
+            }
+
+            .nav-link {
+                padding: 8px 12px;
+                font-size: 11px;
+            }
+
+            .toolbar {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .toolbar-actions {
+                align-self: flex-end;
+            }
+
+            .search {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .navbar {
+                flex-wrap: wrap;
+                padding: 12px 18px;
+                gap: 10px;
+            }
+
+            .brand {
+                font-size: 16px;
+            }
+
+            .container {
+                padding: 0 16px 24px;
+            }
+
+            .heading {
+                align-items: flex-start;
+                padding: 26px 0 20px;
+                gap: 12px;
+            }
+
+                .heading p {
+                    font-size: 12px;
+                }
+
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            .stat {
+                padding: 13px;
+                gap: 10px;
+            }
+
+            .stat-icon {
+                width: 40px;
+                height: 44px;
+                border-radius: 16px;
+                font-size: 18px;
+            }
+
+            .stat-label {
+                font-size: 9px;
+            }
+
+            .stat-text {
+                font-size: 14px;
+            }
+
+            .toolbar-actions {
+                align-self: stretch;
+            }
+
+                .toolbar-actions .btn {
+                    flex: 1;
+                    padding: 9px 12px;
+                    font-size: 11px;
+                }
+
+            .workspace {
+                padding: 16px;
+                border-radius: 28px;
+            }
+
+            .workspace-head {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .host-chip {
+                max-width: 100%;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .form-section {
+                padding: 17px;
+            }
+
+            .row-description {
+                min-width: 220px;
+            }
+
+            td, th {
+                padding: 13px 12px;
+            }
+
+            .response-panel {
+                padding: 16px;
+            }
+
+            .response-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            #liveFrame {
+                height: 500px;
+            }
+
+            .footer {
+                flex-direction: column;
+                gap: 4px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .toolbar-actions .btn {
+                flex-basis: 45%;
+            }
+
+            .stat {
+                gap: 7px;
+                padding: 10px;
+            }
+
+            .stat-icon {
+                width: 32px;
+                height: 38px;
+            }
+
+            .stat-text {
+                font-size: 12px;
+            }
+
+            .modal {
+                padding: 12px;
+            }
+
+            .modal-dialog {
+                max-height: calc(100dvh - 24px);
+                border-radius: 28px;
+            }
+
+            .modal-body, .modal-header, .modal-footer {
+                padding: 18px;
+            }
+
+            .qr-frame {
+                padding: 18px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                transition-duration: .01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="navbar">
+            <div class="brand">
+                <span class="brand-icon" aria-hidden="true">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </span>
+                Audio Guide API Console
+            </div>
+
+            <nav class="nav-links" aria-label="Điều hướng API">
+                <a class="nav-link active" href="#workspace">
+                    <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
+                    Kiểm thử API
+                </a>
+
+                <a class="nav-link" href="#responsePanel">
+                    <i class="fa-solid fa-display" aria-hidden="true"></i>
+                    Kết quả thực thi
+                </a>
+
+                <a class="nav-link"
+                   id="swaggerLink"
+                   href="/swagger"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    <i class="fa-solid fa-code" aria-hidden="true"></i>
+                    Swagger API
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="heading reveal">
+            <button class="back-button"
+                    type="button"
+                    onclick="history.back()"
+                    aria-label="Quay lại">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            </button>
+
+            <div>
+                <h1>
+                    <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
+                    Kiểm thử API thuyết minh đa ngôn ngữ
+                </h1>
+                <p>
+                    Kiểm tra endpoint, cấu hình yêu cầu và mô phỏng trải nghiệm du khách.
+                </p>
+            </div>
+        </section>
+
+        <section class="stats reveal delay-1" aria-label="Tổng quan cấu hình API">
+            <div class="glass stat">
+                <div class="stat-icon icon-blue">
+                    <i class="fa-solid fa-code" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Endpoint hỗ trợ</div>
+                    <div class="stat-value">3</div>
+                </div>
+            </div>
+
+            <div class="glass stat">
+                <div class="stat-icon icon-green">
+                    <i class="fa-solid fa-language" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Ngôn ngữ hỗ trợ</div>
+                    <div class="stat-value green">5</div>
+                </div>
+            </div>
+
+            <div class="glass stat">
+                <div class="stat-icon icon-yellow">
+                    <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Điểm cấu hình sẵn</div>
+                    <div class="stat-value amber">8</div>
+                </div>
+            </div>
+
+            <div class="glass stat">
+                <div class="stat-icon icon-cyan">
+                    <i class="fa-solid fa-server" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <div class="stat-label">Môi trường đã chọn</div>
+                    <div class="stat-value stat-text" id="hostModeText">Hiện tại</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="toolbar reveal delay-2" aria-label="Thao tác API">
+            <div class="search">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input id="endpointSearch"
+                       type="search"
+                       placeholder="Tìm endpoint: scan, generate, health..."
+                       aria-label="Tìm endpoint"
+                       oninput="filterEndpoints()">
+
+                <button id="clearSearch"
+                        class="clear-search"
+                        type="button"
+                        onclick="clearEndpointSearch()"
+                        aria-label="Xóa tìm kiếm"
+                        hidden>
+                    ×
+                </button>
+            </div>
+
+            <div class="toolbar-actions">
+                <button class="btn" type="button" onclick="openConnectionModal()">
+                    <i class="fa-solid fa-wave-square blue" aria-hidden="true"></i>
+                    Kết nối API
+                </button>
+
+                <button class="btn" type="button" onclick="openQrModal()">
+                    <i class="fa-solid fa-qrcode green" aria-hidden="true"></i>
+                    Mã QR
+                </button>
+
+                <button class="btn btn-primary execute-button"
+                        type="button"
+                        onclick="executeRequest()">
+                    <i class="fa-solid fa-play" aria-hidden="true"></i>
+                    Thực thi yêu cầu
+                </button>
+            </div>
+        </section>
+
+        <section class="glass workspace reveal delay-3" id="workspace">
+            <div class="workspace-head">
+                <div>
+                    <h2>Danh sách endpoint</h2>
+                    <p>Chọn chức năng cần kiểm thử và thiết lập tham số bên dưới.</p>
+                </div>
+
+                <span class="host-chip mono" id="hostChip"></span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Phương thức</th>
+                            <th>Endpoint</th>
+                            <th>Chức năng</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr id="row_scan"
+                            class="selected"
+                            data-search="scan token quét bản đồ thuyết minh">
+                            <td><span class="method mono">GET</span></td>
+                            <td class="endpoint-path mono">/api/QrGuide/scan/{token}</td>
+                            <td class="row-description">
+                                Mở giao diện bản đồ và thuyết minh theo ngôn ngữ.
+                            </td>
+                            <td>
+                                <button class="btn btn-small"
+                                        id="choose_scan"
+                                        type="button"
+                                        aria-pressed="true"
+                                        onclick="selectEndpoint('scan')">
+                                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                                    Đang chọn
+                                </button>
+                            </td>
+                        </tr>
+
+                        <tr id="row_generate"
+                            data-search="generate id sinh tạo mã qr">
+                            <td><span class="method mono">GET</span></td>
+                            <td class="endpoint-path mono">/api/QrGuide/generate/{id}</td>
+                            <td class="row-description">
+                                Gọi API sinh mã QR theo ID điểm tham quan.
+                            </td>
+                            <td>
+                                <button class="btn btn-small"
+                                        id="choose_generate"
+                                        type="button"
+                                        aria-pressed="false"
+                                        onclick="selectEndpoint('generate')">
+                                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                                    Thiết lập
+                                </button>
+                            </td>
+                        </tr>
+
+                        <tr id="row_health"
+                            data-search="health sức khỏe trạng thái máy chủ kết nối">
+                            <td><span class="method mono">GET</span></td>
+                            <td class="endpoint-path mono">/health</td>
+                            <td class="row-description">
+                                Kiểm tra phản hồi endpoint sức khỏe máy chủ.
+                            </td>
+                            <td>
+                                <button class="btn btn-small"
+                                        id="choose_health"
+                                        type="button"
+                                        aria-pressed="false"
+                                        onclick="selectEndpoint('health')">
+                                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                                    Thiết lập
+                                </button>
+                            </td>
+                        </tr>
+
+                        <tr id="noEndpoints" hidden>
+                            <td colspan="4" style="text-align:center;color:#64748b">
+                                Không tìm thấy endpoint phù hợp.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-grid">
+                <section class="form-section" id="parameterSection">
+                    <h3 class="section-heading">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                        Tham số yêu cầu
+                    </h3>
+
+                    <div id="poiParameters">
+                        <div class="field">
+                            <label class="field-label" for="poiSelect">
+                                <span>Mã QR cổng</span>
+                                <code id="parameterName">token</code>
+                            </label>
+
+                            <select id="poiSelect" onchange="onParametersChange()"><option value="MUSEUM-MAIN-ENTRY">QR cổng chính — Mở bản đồ tham quan</option></select>
+
+                            <p class="hint" id="poiHint">
+                                Cổng chính mở bản đồ tổng quan các điểm tham quan.
+                            </p>
+                        </div>
+
+                        <div id="scanParameters">
+                            <div class="field">
+                                <div class="field-label" id="languageLabel">
+                                    <span>Ngôn ngữ thuyết minh</span>
+                                    <code>lang</code>
+                                </div>
+
+                                <div class="languages"
+                                     role="group"
+                                     aria-labelledby="languageLabel">
+                                    <button class="language" id="lang_vi" type="button"
+                                            aria-pressed="true"
+                                            onclick="selectLanguage('vi')">
+                                        VI<small>Tiếng Việt</small>
+                                    </button>
+                                    <button class="language" id="lang_en" type="button"
+                                            aria-pressed="false"
+                                            onclick="selectLanguage('en')">
+                                        EN<small>English</small>
+                                    </button>
+                                    <button class="language" id="lang_zh" type="button"
+                                            aria-pressed="false"
+                                            onclick="selectLanguage('zh')">
+                                        ZH<small>中文</small>
+                                    </button>
+                                    <button class="language" id="lang_fr" type="button"
+                                            aria-pressed="false"
+                                            onclick="selectLanguage('fr')">
+                                        FR<small>Français</small>
+                                    </button>
+                                    <button class="language" id="lang_ru" type="button"
+                                            aria-pressed="false"
+                                            onclick="selectLanguage('ru')">
+                                        RU<small>Русский</small>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="toggle-card">
+                                <div>
+                                    <strong id="previewLabel">Chế độ xem thử</strong>
+                                    <p id="previewHelp">
+                                        Không ghi nhận phiên thiết bị và lượt quét.
+                                    </p>
+                                </div>
+
+                                <label class="switch">
+                                    <input id="previewCheck"
+                                           type="checkbox"
+                                           checked
+                                           onchange="onParametersChange()"
+                                           aria-labelledby="previewLabel"
+                                           aria-describedby="previewHelp">
+                                    <span class="track"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="health-note" id="healthParameters" hidden>
+                        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                        Endpoint health không cần tham số. Nhấn
+                        <strong>Thực thi yêu cầu</strong> để kiểm tra phản hồi.
+                    </div>
+                </section>
+
+                <section class="form-section">
+                    <h3 class="section-heading">
+                        <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+                        Yêu cầu được tạo
+                    </h3>
+
+                    <div class="field-label">
+                        <span>URL yêu cầu</span>
+                        <code>GET</code>
+                    </div>
+
+                    <div class="code-box request-url mono"
+                         id="requestUrl"
+                         tabindex="0"></div>
+
+                    <div class="field-label">
+                        <span>Lệnh cURL</span>
+                        <button class="btn btn-small"
+                                type="button"
+                                onclick="copyCurl()">
+                            <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                            Sao chép
+                        </button>
+                    </div>
+
+                    <pre class="code-box mono" id="curlDisplay" tabindex="0"></pre>
+
+                    <div class="request-actions">
+                        <button class="btn btn-small"
+                                type="button"
+                                onclick="resetParameters()">
+                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                            Đặt lại
+                        </button>
+
+                        <button class="btn btn-small"
+                                type="button"
+                                onclick="openRequestTab()">
+                            <i class="fa-solid fa-arrow-up-right-from-square"
+                               aria-hidden="true"></i>
+                            Mở tab mới
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="glass response-panel reveal delay-3" id="responsePanel">
+            <div class="response-header">
+                <div class="response-title">
+                    <i class="fa-solid fa-display" aria-hidden="true"></i>
+                    <h2>Kết quả thực thi</h2>
+                </div>
+
+                <div class="response-meta">
+                    <span id="responseBadge" class="badge" role="status">Chưa thực thi</span>
+                    <span id="responseTime" class="mono muted" style="font-size:10px"></span>
+
+                    <button class="btn btn-small"
+                            id="clearResponseButton"
+                            type="button"
+                            onclick="clearResponse()">
+                        <i class="fa-solid fa-eraser" aria-hidden="true"></i>
+                        Xóa kết quả
+                    </button>
+                </div>
+            </div>
+
+            <div class="response-content">
+                <div class="empty-state" id="emptyResponse">
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-terminal" aria-hidden="true"></i>
+                    </div>
+                    <strong>Sẵn sàng thực thi yêu cầu</strong>
+                    <p>
+                        Scan hiển thị giao diện du khách.
+                        Generate và health hiển thị phản hồi API.
+                    </p>
+                </div>
+
+                <iframe id="liveFrame"
+                        title="Giao diện thuyết minh từ API"
+                        src="about:blank"
+                        hidden></iframe>
+
+                <pre id="responseText" class="mono" hidden></pre>
+
+                <img id="responseImage"
+                     alt="Ảnh trả về từ API"
+                     hidden>
+            </div>
+
+            <p class="hint" id="responseHint">
+                Kết quả sẽ xuất hiện sau khi thực thi.
+            </p>
+        </section>
+
+        <footer class="footer">
+            <span>AudioGuide API Console · Công cụ kiểm thử</span>
+            <span>Thông số điểm tham quan được cấu hình trong file HTML.</span>
+        </footer>
+    </main>
+
+    <!-- Modal kết nối -->
+    <div class="modal"
+         id="connectionModal"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="connectionTitle"
+         hidden>
+        <div class="modal-dialog">
+            <header class="modal-header">
+                <h2 id="connectionTitle">
+                    <i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+                    Cấu hình kết nối API
+                </h2>
+
+                <button class="btn close-button"
+                        type="button"
+                        onclick="closeModal('connectionModal')"
+                        aria-label="Đóng cấu hình kết nối">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+
+            <div class="modal-body">
+                <div class="host-modes">
+                    <button class="host-mode"
+                            id="host_current"
+                            type="button"
+                            aria-pressed="true"
+                            onclick="chooseHost('current')">
+                        <i class="fa-solid fa-server" aria-hidden="true"></i>
+                        Máy chủ hiện tại
+                    </button>
+
+                    <button class="host-mode"
+                            id="host_tunnel"
+                            type="button"
+                            aria-pressed="false"
+                            onclick="chooseHost('tunnel')">
+                        <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                        Dev Tunnel
+                    </button>
+
+                    <button class="host-mode"
+                            id="host_local"
+                            type="button"
+                            aria-pressed="false"
+                            onclick="chooseHost('local')">
+                        <i class="fa-solid fa-laptop-code" aria-hidden="true"></i>
+                        Localhost
+                    </button>
+                </div>
+
+                <label class="field-label" for="hostInput">
+                    Địa chỉ máy chủ
+                </label>
+
+                <input class="input mono"
+                       type="url"
+                       id="hostInput"
+                       placeholder="https://your-api-host"
+                       spellcheck="false">
+
+                <p class="hint">
+                    Dùng Dev Tunnel hoặc địa chỉ mạng truy cập được từ điện thoại
+                    khi kiểm thử quét QR.
+                </p>
+
+                <div class="connection-result"
+                     id="connectionResult"
+                     role="status">
+                    Chưa kiểm tra kết nối.
+                </div>
+            </div>
+
+            <footer class="modal-footer">
+                <button class="btn"
+                        id="testConnectionButton"
+                        type="button"
+                        onclick="testConnection()">
+                    <i class="fa-solid fa-wave-square" aria-hidden="true"></i>
+                    Kiểm tra
+                </button>
+
+                <button class="btn btn-primary"
+                        type="button"
+                        onclick="saveConnection()">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                    Lưu cấu hình
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Modal QR -->
+    <div class="modal"
+         id="qrModal"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="qrTitle"
+         hidden>
+        <div class="modal-dialog">
+            <header class="modal-header">
+                <h2 id="qrTitle">
+                    <i class="fa-solid fa-qrcode" aria-hidden="true"></i>
+                    Mã QR thuyết minh
+                </h2>
+
+                <button class="btn close-button"
+                        type="button"
+                        onclick="closeModal('qrModal')"
+                        aria-label="Đóng mã QR">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </header>
+
+            <div class="modal-body qr-body">
+                <div class="qr-frame">
+                    <div id="qrBox"
+                         role="img"
+                         aria-label="Mã QR mở giao diện thuyết minh"></div>
+                </div>
+
+                <div class="qr-token mono" id="qrToken"></div>
+                <p class="hint" id="qrDescription"></p>
+                <div class="code-box qr-url mono" id="qrUrl"></div>
+            </div>
+
+            <footer class="modal-footer">
+                <button class="btn"
+                        type="button"
+                        onclick="copyQrUrl()">
+                    <i class="fa-solid fa-link" aria-hidden="true"></i>
+                    Sao chép liên kết
+                </button>
+
+                <button class="btn btn-primary"
+                        type="button"
+                        onclick="downloadQr()">
+                    <i class="fa-solid fa-download" aria-hidden="true"></i>
+                    Tải PNG
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script>
+        // ==========================================================
+        // CẤU HÌNH THEO BACKEND ĐANG CÓ
+        // ==========================================================
+        const CONFIG = {
+            tunnel: location.origin,
+            local: location.origin,
+
+            paths: {
+                scan: "/api/QrGuide/scan/",
+                generate: "/api/QrGuide/generate/",
+                health: "/health/ready",
+                swagger: "/swagger"
+            },
+
+            timeoutMs: 20000
+        };
+
+        const $ = id => document.getElementById(id);
+
+        const currentOrigin = ["http:", "https:"].includes(location.protocol)
+            ? location.origin
+            : CONFIG.local;
+
+        const state = {
+            host: currentOrigin,
+            hostMode: "current",
+            endpoint: "scan",
+            language: "vi",
+            busy: false,
+            requestId: 0,
+            controller: null,
+            imageUrl: null,
+            frameWaiting: false,
+            scanToken: "MUSEUM-MAIN-ENTRY"
+        };
+
+        const hostModes = {
+            current: currentOrigin,
+            tunnel: CONFIG.tunnel,
+            local: CONFIG.local
+        };
+
+        let activeModal = null;
+        let modalReturnFocus = null;
+        let modalTimer;
+        let toastTimer;
+        let toastHideTimer;
+        let connectionController = null;
+        let previousBodyOverflow = "";
+
+        function notify(message) {
+            clearTimeout(toastTimer);
+            clearTimeout(toastHideTimer);
+
+            $("toast").textContent = message;
+            $("toast").hidden = false;
+
+            requestAnimationFrame(() => {
+                $("toast").classList.add("show");
+            });
+
+            toastTimer = setTimeout(() => {
+                $("toast").classList.remove("show");
+
+                toastHideTimer = setTimeout(() => {
+                    $("toast").hidden = true;
+                }, 260);
+            }, 3400);
+        }
+
+        function normalizeHost(value) {
+            const url = new URL(value.trim());
+
+            if (
+                !["http:", "https:"].includes(url.protocol) ||
+                url.username ||
+                url.password ||
+                url.search ||
+                url.hash
+            ) {
+                throw new Error(
+                    "URL phải dùng http:// hoặc https://, không kèm thông tin đăng nhập, query hay fragment."
+                );
+            }
+
+            return url.href.replace(/\/+$/, "");
+        }
+
+        function refreshHostInterface() {
+            const labels = {
+                current: "Hiện tại",
+                tunnel: "Dev Tunnel",
+                local: "Localhost",
+                custom: "Tùy chỉnh"
+            };
+
+            $("hostModeText").textContent = labels[state.hostMode];
+            $("hostChip").textContent = state.host;
+            $("hostChip").title = state.host;
+            $("swaggerLink").href = state.host + CONFIG.paths.swagger;
+        }
+
+        // ==========================================================
+        // TÌM KIẾM VÀ CHỌN ENDPOINT
+        // ==========================================================
+        function normalizeSearch(value) {
+            return value.toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/đ/g, "d");
+        }
+
+        function filterEndpoints() {
+            const query = normalizeSearch($("endpointSearch").value.trim());
+            let visible = 0;
+
+            document.querySelectorAll("tr[data-search]").forEach(row => {
+                const content = normalizeSearch(
+                    row.dataset.search + " " + row.textContent
+                );
+
+                row.hidden = !content.includes(query);
+
+                if (!row.hidden) visible++;
+            });
+
+            $("noEndpoints").hidden = visible > 0;
+            $("clearSearch").hidden = query.length === 0;
+        }
+
+        function clearEndpointSearch() {
+            $("endpointSearch").value = "";
+            filterEndpoints();
+            $("endpointSearch").focus();
+        }
+
+        function selectEndpoint(endpoint) {
+            if (!["scan", "generate", "health"].includes(endpoint)) return;
+
+            const previous = state.endpoint;
+            const select = $("poiSelect");
+            const mainOption = select.querySelector(
+                'option[value="MUSEUM-MAIN-ENTRY"]'
+            );
+
+            if (previous === "scan") {
+                state.scanToken = select.value;
+            }
+
+            mainOption.disabled=false;select.value='MUSEUM-MAIN-ENTRY';
+            state.endpoint = endpoint;
+
+            ["scan", "generate", "health"].forEach(name => {
+                const selected = name === endpoint;
+                const button = $("choose_" + name);
+
+                $("row_" + name).classList.toggle("selected", selected);
+                button.setAttribute("aria-pressed", String(selected));
+
+                button.innerHTML = selected
+                    ? '<i class="fa-solid fa-check" aria-hidden="true"></i> Đang chọn'
+                    : '<i class="fa-solid fa-sliders" aria-hidden="true"></i> Thiết lập';
+            });
+
+            $("poiParameters").hidden = endpoint === "health";
+            $("scanParameters").hidden = endpoint !== "scan";
+            $("healthParameters").hidden = endpoint !== "health";
+
+            $("parameterName").textContent =
+                endpoint === "generate" ? "id" : "token";
+
+            $("poiHint").textContent = endpoint === "generate"
+                ? "Endpoint generate sử dụng ID số của điểm tham quan."
+                : "Cổng chính mở bản đồ tổng quan các điểm tham quan.";
+
+            const section = $("parameterSection");
+            section.classList.remove("changing");
+            void section.offsetWidth;
+            section.classList.add("changing");
+
+            onParametersChange();
+        }
+
+        function selectLanguage(language) {
+            const supported = ["vi", "en", "zh", "fr", "ru"];
+
+            if (!supported.includes(language)) return;
+
+            state.language = language;
+
+            supported.forEach(item => {
+                $("lang_" + item).setAttribute(
+                    "aria-pressed",
+                    String(item === language)
+                );
+            });
+
+            onParametersChange();
+        }
+
+        function buildScanUrl(preview = $("previewCheck").checked) {
+            const token = encodeURIComponent($("poiSelect").value);
+
+            const query = new URLSearchParams({
+                lang: state.language,
+                preview: String(preview)
+            });
+
+            return state.host + CONFIG.paths.scan + token + "?" + query;
+        }
+
+        function buildRequestUrl() {
+            state.token = "MUSEUM-MAIN-ENTRY";
+            if (state.endpoint === "scan") {
+                return buildScanUrl();
+            }
+
+            if (state.endpoint === "generate") {
+                return state.host + CONFIG.paths.generate +
+                    encodeURIComponent($("poiSelect").value);
+            }
+
+            return state.host + CONFIG.paths.health;
+        }
+
+        function shellQuote(value) {
+            return "'" + value.replace(/'/g, "'\\''") + "'";
+        }
+
+        function onParametersChange() {
+            if (state.endpoint === "scan") {
+                state.scanToken = $("poiSelect").value;
+            }
+
+            $("previewHelp").textContent = $("previewCheck").checked
+                ? "Yêu cầu chạy thử không ghi nhận phiên thiết bị. Mã QR dành cho khách vẫn ghi nhận."
+                : "Ghi nhận một lượt vào cổng cho phiên tab; đổi ngôn ngữ không cộng lại.";
+
+            const url = buildRequestUrl();
+
+            $("requestUrl").textContent = url;
+            $("curlDisplay").textContent =
+                "curl -X GET " + shellQuote(url) + " -H 'accept: */*'";
+
+            if (activeModal === "qrModal") renderQr();
+        }
+
+        function resetParameters() {
+            $("poiSelect").value = "MUSEUM-MAIN-ENTRY";
+
+            $("previewCheck").checked = true;
+            selectLanguage("vi");
+            notify("Đã đặt lại tham số của yêu cầu.");
+        }
+
+        async function copyText(text, fallbackElement) {
+            try {
+                await navigator.clipboard.writeText(text);
+                notify("Đã sao chép.");
+            } catch {
+                if (fallbackElement) {
+                    const range = document.createRange();
+                    range.selectNodeContents(fallbackElement);
+
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+
+                    notify("Đã chọn nội dung. Nhấn Ctrl+C hoặc Command+C.");
+                } else {
+                    notify("Trình duyệt không cho phép sao chép tự động.");
+                }
+            }
+        }
+
+        function copyCurl() {
+            copyText($("curlDisplay").textContent, $("curlDisplay"));
+        }
+
+        function openRequestTab() {
+            window.open(buildRequestUrl(), "_blank", "noopener,noreferrer");
+        }
+
+        // ==========================================================
+        // MODAL VÀ ĐIỀU HƯỚNG BÀN PHÍM
+        // ==========================================================
+        function openModal(id) {
+            if (activeModal) return;
+
+            clearTimeout(modalTimer);
+
+            modalReturnFocus = document.activeElement;
+            previousBodyOverflow = document.body.style.overflow;
+            activeModal = id;
+
+            const modal = $(id);
+            modal.hidden = false;
+            document.body.style.overflow = "hidden";
+
+            // Chốt trạng thái đầu để animation bắt đầu đúng.
+            void modal.offsetWidth;
+            modal.classList.add("show");
+
+            modal.querySelector("button, input, select")?.focus();
+        }
+
+        function closeModal(id) {
+            if (activeModal !== id) return;
+
+            const modal = $(id);
+            modal.classList.remove("show");
+            activeModal = null;
+
+            if (id === "connectionModal") {
+                connectionController?.abort();
+            }
+
+            modalTimer = setTimeout(() => {
+                modal.hidden = true;
+                document.body.style.overflow = previousBodyOverflow;
+
+                if (modalReturnFocus?.isConnected) {
+                    modalReturnFocus.focus();
+                }
+            }, 320);
+        }
+
+        document.querySelectorAll(".modal").forEach(modal => {
+            modal.addEventListener("click", event => {
+                if (event.target === modal) closeModal(modal.id);
+            });
+        });
+
+        document.addEventListener("keydown", event => {
+            if (!activeModal) return;
+
+            if (event.key === "Escape") {
+                closeModal(activeModal);
+                return;
+            }
+
+            if (event.key !== "Tab") return;
+
+            const focusable = [...$(activeModal).querySelectorAll(
+                'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]'
+            )].filter(element => element.getClientRects().length > 0);
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (!first) {
+                event.preventDefault();
+                return;
+            }
+
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+
+        // ==========================================================
+        // CẤU HÌNH VÀ KIỂM TRA KẾT NỐI
+        // ==========================================================
+        function openConnectionModal() {
+            $("hostInput").value = state.host;
+            $("connectionResult").textContent = "Chưa kiểm tra kết nối.";
+
+            updateHostModeButtons(state.hostMode);
+            openModal("connectionModal");
+        }
+
+        function updateHostModeButtons(mode) {
+            ["current", "tunnel", "local"].forEach(item => {
+                $("host_" + item).setAttribute(
+                    "aria-pressed",
+                    String(item === mode)
+                );
+            });
+        }
+
+        function chooseHost(mode) {
+            if (!Object.prototype.hasOwnProperty.call(hostModes, mode)) return;
+
+            $("hostInput").value = hostModes[mode];
+            updateHostModeButtons(mode);
+            $("connectionResult").textContent =
+                "Nhấn Kiểm tra hoặc Lưu cấu hình để tiếp tục.";
+        }
+
+        $("hostInput").addEventListener("input", () => {
+            updateHostModeButtons("custom");
+            $("connectionResult").textContent =
+                "Địa chỉ đã thay đổi. Chưa kiểm tra kết nối.";
+        });
+
+        function saveConnection() {
+            try {
+                state.host = normalizeHost($("hostInput").value);
+
+                state.hostMode = Object.keys(hostModes).find(
+                    mode => normalizeHost(hostModes[mode]) === state.host
+                ) || "custom";
+
+                refreshHostInterface();
+                onParametersChange();
+                closeModal("connectionModal");
+
+                notify("Đã lưu cấu hình kết nối.");
+            } catch (error) {
+                $("connectionResult").textContent = error.message;
+                $("hostInput").focus();
+            }
+        }
+
+        async function testConnection() {
+            let host;
+
+            try {
+                host = normalizeHost($("hostInput").value);
+            } catch (error) {
+                $("connectionResult").textContent = error.message;
+                return;
+            }
+
+            const button = $("testConnectionButton");
+            const original = button.innerHTML;
+
+            button.disabled = true;
+            button.innerHTML =
+                '<i class="fa-solid fa-spinner spin" aria-hidden="true"></i> Đang kiểm tra';
+
+            connectionController?.abort();
+            const controller = new AbortController();
+            connectionController = controller;
+
+            let timedOut = false;
+
+            const timeout = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, CONFIG.timeoutMs);
+
+            const start = performance.now();
+
+            try {
+                const response = await fetch(host + CONFIG.paths.health, {
+                    method: "GET",
+                    cache: "no-store",
+                    signal: controller.signal,
+                    headers: { Accept: "*/*" }
+                });
+
+                const text = await response.text();
+
+                $("connectionResult").textContent =
+                    "HTTP " + response.status + " · " +
+                    Math.round(performance.now() - start) + " ms\n" +
+                    text.slice(0, 600);
+            } catch (error) {
+                if (error.name === "AbortError" && !timedOut) return;
+
+                $("connectionResult").textContent = timedOut
+                    ? "Máy chủ không phản hồi trong thời gian cho phép."
+                    : "Không đọc được phản hồi. Kiểm tra host, HTTPS, CORS hoặc trang xác nhận Dev Tunnel.";
+            } finally {
+                clearTimeout(timeout);
+                button.disabled = false;
+                button.innerHTML = original;
+            }
+        }
+
+        // ==========================================================
+        // QR: LUÔN LÀ URL SCAN, KHÔNG PHẢI GENERATE HOẶC HEALTH
+        // ==========================================================
+        function openQrModal() {
+            renderQr();
+            openModal("qrModal");
+        }
+
+        function renderQr() {
+            const box = $("qrBox");
+            const url = buildScanUrl(false);
+
+            box.replaceChildren();
+            $("qrToken").textContent = $("poiSelect").value;
+            $("qrUrl").textContent = url;
+
+            const hostname = new URL(state.host).hostname;
+            const local = ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
+
+            $("qrDescription").textContent = local
+                ? "URL Localhost chỉ dùng trên máy chạy API. Chọn Dev Tunnel để quét từ điện thoại."
+                : "QR dành cho khách: quét để mở bản đồ và ghi nhận phiên thiết bị, lượt vào cổng.";
+
+            if (typeof QRCode === "undefined") {
+                box.textContent = "Không tải được thư viện QR. Kiểm tra kết nối mạng.";
+                return;
+            }
+
+            try {
+                new QRCode(box, {
+                    text: url,
+                    width: 220,
+                    height: 220,
+                    colorDark: "#102838",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch {
+                box.textContent = "Không tạo được QR. Kiểm tra độ dài URL.";
+            }
+        }
+
+        function copyQrUrl() {
+            copyText($("qrUrl").textContent, $("qrUrl"));
+        }
+
+        function downloadQr() {
+            const source = $("qrBox").querySelector("canvas");
+
+            if (!source) {
+                notify("Chưa có mã QR để tải.");
+                return;
+            }
+
+            const padding = 24;
+            const output = document.createElement("canvas");
+            output.width = source.width + padding * 2;
+            output.height = source.height + padding * 2;
+
+            const context = output.getContext("2d");
+            context.fillStyle = "#ffffff";
+            context.fillRect(0, 0, output.width, output.height);
+            context.drawImage(source, padding, padding);
+
+            const link = document.createElement("a");
+            link.download = "QR_" + $("poiSelect").value + ".png";
+            link.href = output.toDataURL("image/png");
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            notify("Đã tạo ảnh QR PNG.");
+        }
+
+        // ==========================================================
+        // THỰC THI VÀ HIỂN THỊ KẾT QUẢ
+        // ==========================================================
+        function setBadge(text, type = "") {
+            $("responseBadge").textContent = text;
+            $("responseBadge").className = "badge " + type;
+        }
+
+        function setBusy(busy) {
+            state.busy = busy;
+
+            document.querySelectorAll(".execute-button").forEach(button => {
+                button.disabled = busy;
+
+                button.innerHTML = busy
+                    ? '<i class="fa-solid fa-spinner spin" aria-hidden="true"></i> Đang thực thi'
+                    : '<i class="fa-solid fa-play" aria-hidden="true"></i> Thực thi yêu cầu';
+            });
+        }
+
+        function releaseImage() {
+            if (state.imageUrl) {
+                URL.revokeObjectURL(state.imageUrl);
+                state.imageUrl = null;
+            }
+        }
+
+        function hideResponseViews() {
+            state.frameWaiting = false;
+
+            $("emptyResponse").hidden = true;
+            $("liveFrame").hidden = true;
+            $("responseText").hidden = true;
+            $("responseImage").hidden = true;
+
+            $("liveFrame").src = "about:blank";
+            $("responseText").textContent = "";
+            $("responseImage").removeAttribute("src");
+
+            releaseImage();
+        }
+
+        function clearResponse() {
+            state.requestId++;
+            state.controller?.abort();
+            state.controller = null;
+
+            setBusy(false);
+            hideResponseViews();
+
+            $("emptyResponse").hidden = false;
+            $("responseTime").textContent = "";
+            $("responseHint").textContent =
+                "Kết quả sẽ xuất hiện sau khi thực thi.";
+
+            setBadge("Chưa thực thi");
+        }
+
+        async function executeRequest() {
+            if (state.busy) return;
+
+            const endpoint = state.endpoint;
+            const url = buildRequestUrl();
+            const requestId = ++state.requestId;
+
+            state.controller?.abort();
+            hideResponseViews();
+
+            $("responseTime").textContent = "";
+            $("responsePanel").scrollIntoView({
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                    ? "auto"
+                    : "smooth",
+                block: "start"
+            });
+
+            // Scan được điều hướng trực tiếp trong iframe.
+            // Không fetch trước để tránh ghi nhận lượt quét hai lần.
+            if (endpoint === "scan") {
+                setBadge("Đã mở yêu cầu scan", "pending");
+
+                $("responseHint").textContent =
+                    "Iframe không cung cấp mã HTTP khác nguồn. Nếu không hiển thị, dùng Mở tab mới để kiểm tra.";
+
+                $("liveFrame").hidden = false;
+                state.frameWaiting = true;
+                $("liveFrame").src = url;
+                return;
+            }
+
+            // Generate và health: đọc phản hồi và HTTP status thực tế.
+            setBusy(true);
+            setBadge("Đang gửi yêu cầu", "pending");
+
+            $("responseText").hidden = false;
+            $("responseText").textContent = "Đang chờ máy chủ phản hồi...";
+            $("responseHint").textContent = url;
+
+            const controller = new AbortController();
+            state.controller = controller;
+
+            let timedOut = false;
+
+            const timeout = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, CONFIG.timeoutMs);
+
+            const start = performance.now();
+
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    cache: "no-store",
+                    signal: controller.signal,
+                    headers: { Accept: "*/*" }
+                });
+
+                const contentType =
+                    (response.headers.get("content-type") || "").toLowerCase();
+
+                if (contentType.startsWith("image/")) {
+                    const blob = await response.blob();
+
+                    if (requestId !== state.requestId) return;
+
+                    state.imageUrl = URL.createObjectURL(blob);
+                    $("responseText").hidden = true;
+                    $("responseImage").src = state.imageUrl;
+                    $("responseImage").hidden = false;
+                } else {
+                    let text = await response.text();
+
+                    if (requestId !== state.requestId) return;
+
+                    if (contentType.includes("json")) {
+                        try {
+                            text = JSON.stringify(JSON.parse(text), null, 2);
+                        } catch {
+                            // Giữ nguyên nội dung nếu máy chủ trả JSON không hợp lệ.
+                        }
+                    }
+
+                    // Dùng textContent để phản hồi API được hiển thị an toàn.
+                    $("responseText").textContent =
+                        text || "(Phản hồi không có nội dung)";
+                }
+
+                if (requestId !== state.requestId) return;
+
+                setBadge(
+                    "HTTP " + response.status,
+                    response.ok ? "success" : "error"
+                );
+
+                $("responseTime").textContent =
+                    Math.round(performance.now() - start) + " ms";
+
+                $("responseHint").textContent =
+                    "Content-Type: " + (contentType || "không được cung cấp") +
+                    " · " + url;
+            } catch (error) {
+                if (requestId !== state.requestId) return;
+
+                if (error.name === "AbortError" && !timedOut) return;
+
+                setBadge(timedOut ? "Hết thời gian chờ" : "Không đọc được phản hồi", "error");
+
+                $("responseText").hidden = false;
+                $("responseText").textContent = timedOut
+                    ? "Máy chủ không phản hồi trong " +
+                    CONFIG.timeoutMs / 1000 + " giây."
+                    : "Không thể đọc phản hồi API.\n\n" +
+                    "Kiểm tra:\n" +
+                    "• Địa chỉ máy chủ và endpoint.\n" +
+                    "• Backend đã chạy hay chưa.\n" +
+                    "• CORS nếu gọi khác nguồn.\n" +
+                    "• HTTP bị chặn khi trang đang dùng HTTPS.\n" +
+                    "• Trang xác nhận truy cập Dev Tunnel.\n\n" +
+                    "Bạn có thể dùng Mở tab mới để xem phản hồi trực tiếp.";
+
+                $("responseTime").textContent =
+                    Math.round(performance.now() - start) + " ms";
+            } finally {
+                clearTimeout(timeout);
+
+                if (requestId === state.requestId) {
+                    state.controller = null;
+                    setBusy(false);
+                }
+            }
+        }
+
+        $("liveFrame").addEventListener("load", () => {
+            if (!state.frameWaiting) return;
+
+            try {
+                if ($("liveFrame").contentWindow.location.href === "about:blank") {
+                    return;
+                }
+            } catch {
+                // Khung khác nguồn không cho đọc location.
+            }
+
+            state.frameWaiting = false;
+            setBadge("Khung xem trước đã tải");
+
+            // Sự kiện load không xác nhận HTTP 200.
+            $("responseHint").textContent =
+                "Khung đã kết thúc tải; trạng thái HTTP chưa được xác minh. Dùng Mở tab mới nếu nội dung không đúng.";
+        });
+
+        document.querySelectorAll(".nav-link[href^='#']").forEach(link => {
+            link.addEventListener("click", () => {
+                document.querySelectorAll(".nav-link").forEach(item => {
+                    item.classList.remove("active");
+                });
+
+                link.classList.add("active");
+            });
+        });
+
+        $("hostInput").addEventListener("keydown", event => {
+            if (event.key === "Enter") saveConnection();
+        });
+
+        refreshHostInterface();
+        onParametersChange();
+    </script>
+</body>
+</html>

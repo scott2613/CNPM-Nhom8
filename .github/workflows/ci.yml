@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: CiOnly_AudioGuide_2026!Strong
+        ports: ["1433:1433"]
+    env:
+      ConnectionStrings__DefaultConnection: Server=localhost,1433;Database=AudioGuideCi;User Id=sa;Password=CiOnly_AudioGuide_2026!Strong;Encrypt=True;TrustServerCertificate=True;
+      AUDIOGUIDE_TEST_SQL: Server=localhost,1433;Database=AudioGuideCi;User Id=sa;Password=CiOnly_AudioGuide_2026!Strong;Encrypt=True;TrustServerCertificate=True;
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore AudioGuideSolution.sln --locked-mode
+      - run: dotnet build AudioGuideSolution.sln -c Release --no-restore -m:1
+      - name: Prepare isolated integration database
+        run: dotnet run --project tools/Database -c Release --no-build -- ci-create sql
+      - run: dotnet test AudioGuide.Tests -c Release --no-build --logger "trx;LogFileName=results.trx"
+      - name: Reject vulnerable dependencies
+        shell: bash
+        run: |
+          dotnet list AudioGuideSolution.sln package --vulnerable --include-transitive --format json > audit.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('audit.json'))
+          bad=[p for project in data.get('projects',[]) for f in project.get('frameworks',[]) for key in ('topLevelPackages','transitivePackages') for p in f.get(key,[]) if p.get('vulnerabilities')]
+          assert not bad, 'Vulnerable dependencies found'
+          PY
+      - run: docker build -t audioguide-api:ci .
+      - run: docker build -f Dockerfile.admin -t audioguide-admin:ci .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-results
+          path: |
+            **/TestResults/*.trx
+            audit.json
