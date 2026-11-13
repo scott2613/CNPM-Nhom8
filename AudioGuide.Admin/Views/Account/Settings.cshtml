@@ -1,0 +1,38 @@
+@{
+    ViewData["Title"] = "Tài khoản quản trị";
+}
+
+<section class="container py-4">
+    <div class="card bg-white bg-opacity-75 border-light shadow-sm rounded-4 mx-auto" style="max-width: 38rem;">
+        <div class="card-body p-4">
+            <h1 class="h3 mb-3">Tài khoản quản trị</h1>
+            <p>Tên đăng nhập hiện tại <strong>@(User.Identity?.Name)</strong></p>
+            <p class="text-muted">Bạn có thể đổi tên đăng nhập, mật khẩu hoặc cả hai.</p>
+            <form asp-action="Settings" method="post">
+                <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+                <div class="mb-3">
+                    <label class="form-label" for="currentPassword">Mật khẩu hiện tại</label>
+                    <input class="form-control" id="currentPassword" name="currentPassword" type="password"
+                           autocomplete="current-password" maxlength="1024" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="newUsername">Tên đăng nhập mới</label>
+                    <input class="form-control" id="newUsername" name="newUsername" autocomplete="off" maxlength="100"
+                           placeholder="Để trống nếu giữ tên hiện tại">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="newPassword">Mật khẩu mới (ít nhất 4 ký tự)</label>
+                    <input class="form-control" id="newPassword" name="newPassword" type="password"
+                           autocomplete="new-password" minlength="4" maxlength="1024"
+                           placeholder="Để trống nếu giữ mật khẩu hiện tại">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="confirmPassword">Nhập lại mật khẩu mới</label>
+                    <input class="form-control" id="confirmPassword" name="confirmPassword" type="password"
+                           autocomplete="new-password" maxlength="1024">
+                </div>
+                <button class="btn-liquid-lens" type="submit">Lưu thông tin</button>
+            </form>
+        </div>
+    </div>
+</section>
