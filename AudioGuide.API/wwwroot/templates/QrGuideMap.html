@@ -1,0 +1,2213 @@
+<!-- Khai báo tài liệu chuẩn HTML5 -->
+<!DOCTYPE html>
+<!-- Gán mã ngôn ngữ giao diện được máy chủ API thay thế qua token TARGET_LANG -->
+<html lang='{{TARGET_LANG}}'>
+<head>
+    <!-- Thiết lập bộ mã ký tự hiển thị UTF-8 hỗ trợ tiếng Việt và đa ngôn ngữ -->
+    <meta charset='UTF-8'>
+    <!-- Cấu hình khung nhìn tối ưu cho thiết bị di động, chặn zoom làm vỡ giao diện bản đồ -->
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'>
+    <!-- Tiêu đề trang web bản đồ thuyết minh di tích -->
+    <title>Bản Đồ Thuyết Minh Di Tích Sài Gòn</title>
+    <!-- Thư viện CSS Leaflet phục vụ hiển thị bản đồ tương tác -->
+    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css' />
+    <!-- Thư viện Javascript Leaflet lõi -->
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'></script>
+    <style>
+        /* Thiết lập các biến giao diện hiệu ứng kính mờ (Liquid Glass) */
+        :root {
+            /* Màu nền kính bán trong suốt */
+            --glass-bg: rgba(255, 255, 255, 0.28);
+            /* Màu nền kính khi di chuột hoặc bấm */
+            --glass-bg-hover: rgba(255, 255, 255, 0.42);
+            /* Màu viền kính phản chiếu ánh sáng */
+            --glass-border: rgba(255, 255, 255, 0.62);
+            /* Hiệu ứng đổ bóng và viền sáng nội vi */
+            --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1.5px 2px rgba(255, 255, 255, 0.85);
+            /* Bộ lọc làm mờ hậu cảnh và tăng độ bão hòa màu */
+            --glass-blur: blur(28px) saturate(210%);
+            /* Màu vàng kim điểm nhấn */
+            --gold-accent: #fef08a;
+        }
+
+        /* Định dạng chung loại bỏ viền bấm mặc định */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Khóa cuộn trang web để ưu tiên cảm ứng thao tác trên bản đồ */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #b9e1fe 0%, #e2f1fe 35%, #fff 65%, #cde7fd 100%) fixed;
+        }
+
+        /* Vùng hiển thị toàn màn hình của bản đồ Leaflet */
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: transparent;
+        }
+
+        /* Cụm công cụ điều khiển góc trên bên phải */
+        .right-control-cluster {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+            /* Kích hoạt lại sự kiện bấm cho các nút bấm con bên trong cụm */
+            .right-control-cluster * {
+                pointer-events: auto;
+            }
+
+        /* 1. Nút mở danh sách địa điểm */
+        .glass-menu-trigger-btn {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            padding: 9px 16px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+            /* Hiệu ứng nhấn nút danh sách */
+            .glass-menu-trigger-btn:active {
+                transform: scale(0.93);
+                background: var(--glass-bg-hover);
+            }
+
+        /* 2. Bao bọc bộ chọn ngôn ngữ */
+        .lang-wrapper {
+            position: relative;
+        }
+
+        /* Nút tròn bật menu đổi ngôn ngữ */
+        .lang-toggle-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+            /* Hiệu ứng nhấn nút ngôn ngữ */
+            .lang-toggle-circle:active {
+                transform: scale(0.92);
+            }
+
+        /* Hộp thoại thả xuống chọn ngôn ngữ */
+        .glass-lang-dropdown {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 18px;
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 155px;
+            z-index: 2200;
+            animation: slideDownCorner 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+            /* Hiển thị dropdown khi có class show */
+            .glass-lang-dropdown.show {
+                display: flex;
+            }
+
+        /* Mục tùy chọn ngôn ngữ cụ thể */
+        .lang-dropdown-item {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            padding: 7px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+            /* Hiệu ứng khi rê chuột vào mục ngôn ngữ */
+            .lang-dropdown-item:hover, .lang-dropdown-item:active {
+                background: rgba(37, 99, 235, 0.85);
+                border-color: rgba(255, 255, 255, 0.6);
+                transform: translateX(-2px);
+            }
+
+        /* 3. Nút la bàn định vị quay về hướng Bắc */
+        .compass-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            color: #ffffff;
+            font-size: 19px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+            /* Hiệu ứng nhấn nút la bàn */
+            .compass-btn:active {
+                transform: scale(0.92);
+            }
+
+        /* Icon kim la bàn xoay */
+        .compass-icon {
+            display: inline-block;
+            transition: transform 0.35s ease;
+        }
+
+        /* 4. Bộ chuyển tầng di tích dạng đứng */
+        .vertical-floor-ctrl {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Nút tròn hiển thị tầng hiện tại */
+        .floor-toggle-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease;
+        }
+
+        /* Khung nội dung danh sách chọn tầng */
+        .floor-panel-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 6px;
+            border-radius: 22px;
+            margin-top: 6px;
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+
+        /* Ẩn danh sách tầng khi đang ở trạng thái thu gọn */
+        .vertical-floor-ctrl.collapsed .floor-panel-content {
+            display: none !important;
+        }
+
+        /* Nút mũi tên tăng/giảm bước tầng */
+        .floor-step-btn {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            border: none;
+            width: 36px;
+            height: 28px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Danh sách các nút tầng */
+        .floor-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 4px 0;
+        }
+
+        /* Nút chọn từng tầng */
+        .floor-item-btn {
+            background: transparent;
+            color: #ffffff;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+            /* Trạng thái tầng đang được kích hoạt */
+            .floor-item-btn.active {
+                background: rgba(37, 99, 235, 0.85);
+                color: #ffffff;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
+            }
+
+        /* Nút tai nghe thu nhỏ hiển thị ở giữa mép trên */
+        .player-toggle-circle {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            color: #ffffff;
+            font-size: 19px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease;
+        }
+
+        /* Hộp điều khiển phát thanh thuyết minh nổi */
+        .glass-player-box {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 24px);
+            max-width: 530px;
+            z-index: 2000;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+            padding: 12px 16px;
+            color: #ffffff;
+            display: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Thanh tiêu đề trình phát thanh */
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Tên địa danh đang phát thuyết minh */
+        .player-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Nhóm nút thu nhỏ và đóng */
+        .window-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        /* Nút icon tròn kính nhỏ */
+        .glass-icon-btn {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Hàng chứa các công cụ điều khiển phát âm thanh */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        /* Nút Phát / Tạm dừng chính */
+        .play-main-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(12px);
+            color: #ffffff;
+            border-radius: 50%;
+            border: 1.5px solid rgba(255, 255, 255, 0.7);
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Hộp chứa thanh trượt tiến trình phát */
+        .seek-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        /* Thanh trượt thời gian âm thanh */
+        .seek-slider {
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.35);
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+            /* Đầu kéo của thanh thời gian */
+            .seek-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 13px;
+                height: 13px;
+                border-radius: 50%;
+                background: #ffffff;
+                box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+                cursor: pointer;
+            }
+
+        /* Nhãn hiển thị thời lượng phút:giây */
+        .time-label {
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 10px;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+        }
+
+        /* Nhóm nút điều chỉnh tốc độ đọc */
+        .speed-wrapper {
+            position: relative;
+        }
+
+        /* Nút chọn tốc độ phát */
+        .speed-btn {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+            padding: 5px 9px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* Hộp thoại tốc độ đọc thả xuống */
+        .glass-speed-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 16px;
+            padding: 6px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 82px;
+            z-index: 2300;
+            animation: slideDownCorner 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+            /* Hiện dropdown tốc độ đọc khi có class show */
+            .glass-speed-dropdown.show {
+                display: flex;
+            }
+
+        /* Từng tùy chọn mức tốc độ đọc */
+        .speed-option {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            padding: 6px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+            /* Trạng thái tốc độ đang được chọn */
+            .speed-option:hover, .speed-option.active {
+                background: rgba(37, 99, 235, 0.9);
+                border-color: rgba(255, 255, 255, 0.6);
+                color: #ffffff;
+            }
+
+        /* Khung điều chỉnh âm lượng */
+        .volume-popover {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 4px 6px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+
+        /* Nút tắt/bật nhanh tiếng */
+        .vol-toggle-btn {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Thanh trượt mức âm lượng */
+        .vol-slider {
+            width: 38px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 2px;
+            outline: none;
+        }
+
+            /* Nút kéo âm lượng */
+            .vol-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: #22c55e;
+            }
+
+        /* Cửa sổ bảng danh sách địa điểm tham quan */
+        .glass-poi-menu-container {
+            position: absolute;
+            top: 56px;
+            right: 12px;
+            width: 380px;
+            max-width: calc(100vw - 24px);
+            height: 480px;
+            max-height: calc(100vh - 120px);
+            z-index: 2500;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+            padding: 14px;
+            color: #ffffff;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            overflow: hidden;
+            animation: slideDownCorner 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Hoạt ảnh trượt mượt mà từ góc phải */
+        @keyframes slideDownCorner {
+            from {
+                opacity: 0;
+                transform: translate(10px, -10px) scale(0.96);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        /* Tiêu đề danh sách địa điểm */
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+
+        .menu-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Hàng nút lọc theo tầng trong menu */
+        .menu-filter-row {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            flex-shrink: 0;
+        }
+
+        /* Nút lọc viên thuốc */
+        .menu-filter-pill {
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+
+            .menu-filter-pill.active {
+                background: rgba(37, 99, 235, 0.9);
+                color: #ffffff;
+                border-color: rgba(255, 255, 255, 0.6);
+            }
+
+        /* Vùng cuộn dọc chứa các thẻ địa điểm */
+        .menu-scroll-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+        }
+
+        /* Thẻ đại diện cho 1 địa điểm trong danh sách */
+        .poi-card-item {
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 9px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+            .poi-card-item:hover, .poi-card-item:active {
+                background: rgba(255, 255, 255, 0.28);
+                transform: translateX(-2px);
+            }
+
+            .poi-card-item.playing-active {
+                background: rgba(37, 99, 235, 0.38);
+                border-color: rgba(147, 197, 253, 0.7);
+            }
+
+        /* Hình ảnh nhỏ của hiện vật */
+        .poi-thumb-mini {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+        }
+
+        .poi-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .poi-name {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .poi-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10.5px;
+            color: #e2e8f0;
+        }
+
+        .poi-badge-floor {
+            background: rgba(255, 255, 255, 0.25);
+            padding: 1.5px 6px;
+            border-radius: 6px;
+            font-weight: 700;
+            color: #ffffff;
+            font-size: 9.5px;
+        }
+
+        .poi-status-tag {
+            font-size: 10px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .status-ready {
+            color: #86efac;
+        }
+
+        .status-playing {
+            color: #93c5fd;
+            animation: pulsePlay 1.4s infinite;
+        }
+
+        @keyframes pulsePlay {
+            0%, 100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Thước tỉ lệ khoảng cách bản đồ ở mép dưới */
+        .glass-scale-box {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.2s ease;
+        }
+
+            .glass-scale-box.visible {
+                opacity: 1;
+            }
+
+        .scale-bar-graphic {
+            display: flex;
+            align-items: center;
+            height: 12px;
+            border-left: 2.5px solid #ffffff;
+            border-right: 2.5px solid #ffffff;
+            padding: 0;
+        }
+
+        .scale-bar-line {
+            height: 2.5px;
+            background: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.95);
+        }
+
+        /* Thẻ xem trước hình ảnh hiện vật khi rê chuột hoặc click pin */
+        .glass-preview-card {
+            position: absolute;
+            bottom: 22px;
+            left: 14px;
+            z-index: 1900;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+            padding: 12px 16px;
+            display: none;
+            align-items: center;
+            gap: 14px;
+            width: 420px;
+            max-width: calc(100vw - 28px);
+            color: #ffffff;
+            animation: slideUpFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUpFade {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .preview-img-box {
+            width: 82px;
+            height: 82px;
+            border-radius: 16px;
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 1.5px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+            background: #0f172a;
+        }
+
+            .preview-img-box img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+        .preview-details {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .preview-title {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preview-meta {
+            font-size: 11.5px;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preview-action-btn {
+            background: rgba(37, 99, 235, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 11.5px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 4px;
+            align-self: flex-start;
+            transition: all 0.15s ease;
+        }
+
+        .preview-close-btn {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            align-self: flex-start;
+        }
+
+        /* Định dạng khung Popup tùy biến trên bản đồ Leaflet */
+        .leaflet-popup-content-wrapper {
+            background: var(--glass-bg) !important;
+            backdrop-filter: var(--glass-blur) !important;
+            -webkit-backdrop-filter: var(--glass-blur) !important;
+            border: 1.5px solid var(--glass-border) !important;
+            box-shadow: var(--glass-shadow) !important;
+            border-radius: 20px !important;
+            color: #ffffff !important;
+            padding: 4px !important;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--glass-bg) !important;
+            backdrop-filter: var(--glass-blur) !important;
+            border: 1px solid var(--glass-border) !important;
+        }
+
+        .leaflet-popup-content {
+            margin: 8px 10px !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Tối ưu hóa kích thước hiển thị trên màn hình di động nhỏ */
+        @media (max-width: 600px) {
+            .right-control-cluster {
+                top: 8px;
+                right: 8px;
+                gap: 8px;
+            }
+
+            .glass-menu-trigger-btn {
+                font-size: 11.5px;
+                padding: 8px 12px;
+            }
+
+            .compass-btn, .floor-toggle-circle, .lang-toggle-circle {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            .player-toggle-circle {
+                top: 8px;
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            .glass-player-box {
+                top: 8px;
+                width: calc(100% - 16px);
+                padding: 10px 12px;
+            }
+
+            .glass-poi-menu-container {
+                top: 50px;
+                right: 8px;
+                left: 8px;
+                width: auto;
+                max-width: none;
+                height: 52vh;
+                max-height: 52vh;
+            }
+
+            .glass-scale-box {
+                bottom: 14px;
+                font-size: 11px;
+                padding: 6px 14px;
+            }
+
+            .glass-preview-card {
+                left: 10px;
+                right: 10px;
+                width: calc(100% - 20px);
+                max-width: none;
+                bottom: 14px;
+                padding: 10px 12px;
+            }
+
+            .preview-img-box {
+                width: 72px;
+                height: 72px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Vùng vẽ bản đồ tương tác -->
+    <div id='map'></div>
+
+    <!-- Cụm công cụ điều khiển góc trên bên phải -->
+    <div class='right-control-cluster'>
+        <!-- Nút mở menu danh sách điểm tham quan -->
+        <button class='glass-menu-trigger-btn' id='poiMenuTriggerBtn' onclick='togglePoiMenu()' title='Xem danh sách địa điểm'>
+            <span>📋</span>
+            <span>Danh Sách</span>
+        </button>
+
+        <!-- Bộ chọn ngôn ngữ hiển thị và đọc thuyết minh -->
+        <div class='lang-wrapper'>
+            <button class='lang-toggle-circle' onclick='toggleLangDropdown()' title='Đổi ngôn ngữ'>
+                <span id='currentLangFlagIcon'>🌐</span>
+            </button>
+
+            <div class='glass-lang-dropdown' id='langDropdown'>
+                <div class='lang-dropdown-item' onclick="changeLanguage('vi')">🇻🇳 Tiếng Việt</div>
+                <div class='lang-dropdown-item' onclick="changeLanguage('en')">🇺🇸 English</div>
+                <div class='lang-dropdown-item' onclick="changeLanguage('zh')">🇨🇳 中文</div>
+                <div class='lang-dropdown-item' onclick="changeLanguage('fr')">🇫🇷 Français</div>
+                <div class='lang-dropdown-item' onclick="changeLanguage('ru')">🇷🇺 Русский</div>
+            </div>
+        </div>
+
+        <!-- Nút la bàn xoay bản đồ về hướng Bắc -->
+        <button class='compass-btn' onclick='resetOrientationNorth()' title='Định vị xoay về hướng Bắc'>
+            <span class='compass-icon' id='compassIcon'>🧭</span>
+        </button>
+
+        <!-- Bộ chuyển đổi tầng di tích -->
+        <div class='vertical-floor-ctrl collapsed' id='verticalFloorCtrl'>
+            <button class='floor-toggle-circle' onclick='toggleFloorPanel()' title='Chọn tầng tham quan'>
+                <span id='currentFloorBadge'>A</span>
+            </button>
+
+            <div class='floor-panel-content' id='floorPanelContent'>
+                <button class='floor-step-btn' onclick='changeFloorStep(1)' title='Lên tầng trên'>▲</button>
+                <div class='floor-list'>
+                    <button class='floor-item-btn' id='gpsAutoBtn' onclick='toggleAutoGps()' title='Bật hoặc tắt thuyết minh theo GPS'>◎</button>
+                    <button class='floor-item-btn active' id='fBtnAll' onclick='switchFloor(-1)'>A</button>
+                    <button class='floor-item-btn' id='fBtn2' onclick='switchFloor(2)'>2</button>
+                    <button class='floor-item-btn' id='fBtn1' onclick='switchFloor(1)'>1</button>
+                    <button class='floor-item-btn' id='fBtn0' onclick='switchFloor(0)'>G</button>
+                </div>
+                <button class='floor-step-btn' onclick='changeFloorStep(-1)' title='Xuống tầng dưới'>▼</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nút tai nghe thu gọn khi người dùng ẩn khung thuyết minh -->
+    <button class='player-toggle-circle' id='playerToggleCircle' onclick='toggleMinimizePlayer()' title='Mở bảng thuyết minh'>
+        🎧
+    </button>
+
+    <!-- Khung phát âm thanh thuyết minh di tích -->
+    <div class='glass-player-box' id='glassPlayerBox'>
+        <div class='player-header'>
+            <h3 class='player-title' id='playerTitle'>🎧 Thuyết minh: Chưa chọn địa điểm</h3>
+            <div class='window-actions'>
+                <button class='glass-icon-btn' onclick='toggleMinimizePlayer()' id='minBtn' title='Thu nhỏ'>—</button>
+                <button class='glass-icon-btn' onclick='closePlayerBox()' title='Đóng'>✕</button>
+            </div>
+        </div>
+
+        <div class='expandable-content'>
+            <div class='controls-row'>
+                <!-- Nút bật/tạm dừng đọc -->
+                <button type='button' class='play-main-btn' id='playBtn' onclick='toggleVoice()'>
+                    <span id='playIcon'>▶</span>
+                </button>
+
+                <!-- Thanh kéo thời gian phát -->
+                <div class='seek-container'>
+                    <input type='range' class='seek-slider' id='seekSlider' value='0' min='0' max='100'
+                           oninput='onSeekInput(this.value)'
+                           onchange='onSeekChange(this.value)'
+                           onmouseup='onSeekChange(this.value)'
+                           ontouchend='onSeekChange(this.value)'>
+                    <div class='time-label'>
+                        <span id='timeCurrent'>00:00</span>
+                        <span id='timeTotal'>00:30</span>
+                    </div>
+                </div>
+
+                <!-- Tùy chỉnh tốc độ đọc -->
+                <div class='speed-wrapper'>
+                    <button class='speed-btn' id='speedBtn' onclick='toggleSpeedDropdown(event)' title='Tốc độ đọc'>
+                        <span id='speedLabel'>1.0x</span>
+                        <span style='font-size: 8px;'>▼</span>
+                    </button>
+                    <div class='glass-speed-dropdown' id='speedDropdown'>
+                        <div class='speed-option' onclick='selectSpeed(0.5)'>0.5x</div>
+                        <div class='speed-option active' onclick='selectSpeed(1.0)'>1.0x</div>
+                        <div class='speed-option' onclick='selectSpeed(1.5)'>1.5x</div>
+                        <div class='speed-option' onclick='selectSpeed(2.0)'>2.0x</div>
+                    </div>
+                </div>
+
+                <!-- Thanh điều chỉnh âm lượng -->
+                <div class='volume-popover'>
+                    <button class='vol-toggle-btn' id='volBtn' onclick='toggleMute()' title='Bật/Tắt tiếng'>🔊</button>
+                    <input type='range' class='vol-slider' id='volSlider' min='0' max='1' step='0.05' value='1' oninput='onVolumeSliderInput(this.value)'>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Khung danh sách các địa điểm di tích -->
+    <div class='glass-poi-menu-container' id='glassPoiMenu'>
+        <div class='menu-header'>
+            <h4 class='menu-title'>🏛️ Địa Điểm Tham Quan</h4>
+            <button class='glass-icon-btn' onclick='togglePoiMenu()' title='Đóng menu'>✕</button>
+        </div>
+
+        <div class='menu-filter-row'>
+            <button class='menu-filter-pill active' onclick='filterMenuByFloor(-1, this)'>Tất cả (A)</button>
+            <button class='menu-filter-pill' onclick='filterMenuByFloor(0, this)'>Trệt (G)</button>
+            <button class='menu-filter-pill' onclick='filterMenuByFloor(1, this)'>Tầng 1</button>
+            <button class='menu-filter-pill' onclick='filterMenuByFloor(2, this)'>Tầng 2</button>
+        </div>
+
+        <div class='menu-scroll-list' id='poiMenuScrollList'></div>
+    </div>
+
+    <!-- Khung xem trước thông tin và ảnh thực tế của hiện vật -->
+    <div class='glass-preview-card' id='glassPreviewCard'>
+        <div class='preview-img-box'>
+            <img id='previewImg' src='' referrerpolicy='no-referrer' alt='Ảnh thực tế di tích' />
+        </div>
+        <div class='preview-details'>
+            <div class='preview-title' id='previewTitle'>Tên hiện vật</div>
+            <div class='preview-meta'>
+                <span class='poi-badge-floor' id='previewFloor'>Trệt (G)</span>
+                <span style='font-size: 11px; color: #86efac; font-weight: 700;'>🟢 Có thuyết minh</span>
+            </div>
+            <button class='preview-action-btn' id='previewPlayBtn' onclick='playCurrentPreviewPoi()'>🎧 Nghe thuyết minh</button>
+        </div>
+        <button class='preview-close-btn' onclick='closePreviewCard()' title='Đóng'>✕</button>
+    </div>
+
+    <!-- Hộp thước tỉ lệ hiển thị khoảng cách thực tế trên bản đồ -->
+    <div class='glass-scale-box' id='glassScaleBox'>
+        <div class='scale-bar-graphic'>
+            <div class='scale-bar-line' id='scaleBarLine' style='width: 55px;'></div>
+        </div>
+        <span id='scaleText'>20 m</span>
+    </div>
+
+    <!-- Toàn bộ kịch bản Javascript điều khiển logic phía Client -->
+    <script>
+        // Dữ liệu danh sách POI được Controller nhúng sẵn dạng JSON
+        const poisData = {{POIS_JSON}};
+        // Mã ngôn ngữ giọng đọc mặc định từ máy chủ
+        const rawVoiceLanguage = '{{VOICE_LANG}}';
+        // Mã ngôn ngữ đích từ máy chủ
+        const targetLang = '{{TARGET_LANG}}';
+        // Đối tượng tổng hợp giọng nói của trình duyệt
+        const synth = window.speechSynthesis;
+
+        // Trích xuất tham số ngôn ngữ từ URL hoặc fallback về biến template
+        const urlParams = new URLSearchParams(window.location.search);
+        const isPreview = urlParams.get('preview') === 'true';
+        const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        let playbackEventId=null, playbackRecorded=false, audioGeneration=0;
+        let eventQueue = Promise.resolve();
+        async function sendEvent(path,eventId) {
+          if(isPreview)return;
+          const body = JSON.stringify({eventId, languageCode:selectedPoi?.languageCode||activeLangPrefix, preview:isPreview});
+          const sent = eventQueue.then(async () => {
+            const response = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body});
+            if (response.status === 403) {
+                const result = await response.json().catch(() => null);
+                if (result?.message === 'Thiết bị bị chặn.') stopVoice();
+                console.warn(result?.detail || result?.message || 'Máy chủ từ chối ghi nhận sự kiện.');
+            }
+            if(!response.ok)throw new Error('Không ghi nhận được sự kiện');
+          });
+          eventQueue = sent.catch(() => {});
+          return sent;
+        }
+        function recordPlayback(){
+          if(isPreview||playbackRecorded||!selectedPoi||!playbackEventId)return;
+          playbackRecorded=true;
+          const eventId = playbackEventId;
+          sendEvent('/api/QrGuide/log-view/'+encodeURIComponent(selectedPoi.code),eventId)
+            .catch(()=>{ if(playbackEventId===eventId)playbackRecorded=false; });
+        }
+
+        const resolvedLang = (urlParams.get('lang') || targetLang || rawVoiceLanguage || 'vi').toLowerCase();
+
+        // Chuẩn hóa mã nhận diện ngôn ngữ và cờ đại diện
+        let activeLangCode = 'vi-VN';
+        let activeLangPrefix = 'vi';
+        if (resolvedLang.startsWith('en')) { activeLangCode = 'en-US'; activeLangPrefix = 'en'; }
+        else if (resolvedLang.startsWith('zh')) { activeLangCode = 'zh-CN'; activeLangPrefix = 'zh'; }
+        else if (resolvedLang.startsWith('fr')) { activeLangCode = 'fr-FR'; activeLangPrefix = 'fr'; }
+        else if (resolvedLang.startsWith('ru')) { activeLangCode = 'ru-RU'; activeLangPrefix = 'ru'; }
+        else { activeLangCode = 'vi-VN'; activeLangPrefix = 'vi'; }
+
+        // Bảng ánh xạ cờ quốc gia theo mã ngôn ngữ
+        const langFlags = { 'vi': '🇻🇳', 'en': '🇺🇸', 'zh': '🇨🇳', 'fr': '🇫🇷', 'ru': '🇷🇺' };
+        const flagEl = document.getElementById('currentLangFlagIcon');
+        if (flagEl) flagEl.innerText = langFlags[activeLangPrefix] || '🌐';
+
+        // Bộ nhớ đệm danh sách giọng đọc khả dụng trên thiết bị
+        let cachedVoices = [];
+        function refreshVoices() {
+            if ('speechSynthesis' in window) {
+                cachedVoices = window.speechSynthesis.getVoices() || [];
+            }
+        }
+        if ('speechSynthesis' in window) {
+            refreshVoices();
+            window.speechSynthesis.onvoiceschanged = refreshVoices;
+        }
+
+        function newEventId() {
+            if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+            const bytes = crypto.getRandomValues(new Uint8Array(16));
+            bytes[6] = (bytes[6] & 15) | 64;
+            bytes[8] = (bytes[8] & 63) | 128;
+            const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+            return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16)
+                + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+        }
+
+        // Mỗi tab có phiên hiện diện riêng.
+        const mySessionId = newEventId();
+
+        // Nhận diện model máy chi tiết thông qua User-Agent Client Hints API
+        let detectedExactModel = "";
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion'])
+                .then(ua => {
+                    if (ua.model) {
+                        detectedExactModel = ua.model;
+                        sendHeartbeat();
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Các biến trạng thái điều khiển bản đồ và phát thanh
+        let currentFloor = -1;
+        let selectedPoi = null;
+        let previewingPoi = null;
+        let menuFloorFilter = -1;
+
+        let fullUtteranceText = '';
+        let currentRate = 1.0;
+        let currentVolume = 1.0;
+        let previousVolume = 1.0;
+        let isMuted = false;
+        let isSpeaking = false;
+        let isPaused = false;
+        let isUserSeeking = false;
+        let estimatedTotalDuration = 30;
+        let isMinimized = false;
+        let isMenuOpen = false;
+        let mapMarkers = [];
+        let scaleFadeTimeout = null;
+
+        // Biến điều khiển tiến trình thời gian thực
+        window.activeUtterance = null;
+        let activeAudioElement = null;
+        let progressInterval = null;
+        let playbackStartTime = 0;
+        let playbackStartOffsetSec = 0;
+        let currentPlaybackSec = 0;
+
+        // Tọa độ trung tâm mặc định (Bảo tàng Chứng tích Chiến tranh)
+        const DEFAULT_CENTER = [10.77925, 106.69225];
+        const DEFAULT_ZOOM = 18;
+
+        // Hàm tạo ảnh SVG minh họa mặc định nếu địa điểm chưa có link ảnh
+        function generateInlineHeritageSvg(title) {
+            const safeTitle = escapeHtml((title || 'Di Tích Lịch Sử').substring(0, 22));
+            const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+                <defs>
+                    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#bgGrad)" />
+                <circle cx="150" cy="120" r="56" fill="rgba(255,255,255,0.08)" />
+                <path d="M150 75 L195 105 L105 105 Z" fill="#fef08a" />
+                <rect x="115" y="110" width="12" height="42" fill="#ffffff" rx="2" />
+                <rect x="144" y="110" width="12" height="42" fill="#ffffff" rx="2" />
+                <rect x="173" y="110" width="12" height="42" fill="#ffffff" rx="2" />
+                <rect x="98" y="154" width="104" height="10" fill="#fef08a" rx="3" />
+                <text x="150" y="215" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">${safeTitle}</text>
+                <text x="150" y="240" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#94a3b8" text-anchor="middle">HIỆN VẬT DI TÍCH</text>
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        }
+
+        // Lấy đường dẫn ảnh hiện vật hoặc fallback về ảnh SVG
+        function getPoiRealImage(poi) {
+            if (poi.imageUrl && typeof poi.imageUrl === 'string' && /^https:\/\//i.test(poi.imageUrl.trim())) {
+                return poi.imageUrl.trim();
+            }
+            return generateInlineHeritageSvg(poi.title);
+        }
+
+        // Gửi nhịp tim định kỳ báo hiệu thiết bị đang trực tuyến lên máy chủ API
+        let heartbeatPending = false;
+        async function sendHeartbeat() {
+            if (isPreview || document.visibilityState === 'hidden' || heartbeatPending) return;
+            heartbeatPending = true;
+
+            const payload = {
+                sessionId: mySessionId,
+                poiCode: selectedPoi ? selectedPoi.code : 'MAP_VIEW',
+                poiName: selectedPoi ? selectedPoi.title : 'Đang xem bản đồ di tích',
+                isPlaying: isSpeaking && !isPaused,
+                clientModel: detectedExactModel,
+                languageCode: selectedPoi?.languageCode || activeLangPrefix, preview: isPreview
+            };
+
+            const request = new AbortController();
+            const timeout = setTimeout(() => request.abort(), 8000);
+            try {
+                const response = await fetch('/api/analytics/heartbeat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: request.signal
+                });
+                if (!response.ok) console.warn('Không ghi nhận được phiên trực tuyến. HTTP ' + response.status);
+            } catch {
+                // Lần gửi định kỳ tiếp theo thử lại khi có kết nối.
+            } finally {
+                clearTimeout(timeout);
+                heartbeatPending = false;
+            }
+        }
+
+        // Báo cho máy chủ ngắt phiên lập tức khi người dùng đóng tab
+        function notifyDisconnectImmediately() { if(isPreview)return;
+            const url = '/api/analytics/disconnect';
+            const payload = JSON.stringify({ sessionId: mySessionId });
+
+            if (navigator.sendBeacon) {
+                const blob = new Blob([payload], { type: 'application/json' });
+                if (navigator.sendBeacon(url, blob)) return;
+            }
+            fetch(url, {
+                method: 'POST',
+                body: payload,
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' }
+            }).catch(() => {});
+        }
+
+        // Đăng ký sự kiện tắt trang để giải phóng phiên ngay
+        window.addEventListener('pagehide', notifyDisconnectImmediately);
+        window.addEventListener('pageshow', event => {
+            if (event.persisted) sendHeartbeat();
+        });
+
+        // Theo dõi trạng thái ẩn/hiện của tab trình duyệt
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                sendHeartbeat();
+            }
+        });
+
+        // Hiện diện và lượt vào cổng khởi động ngay cả khi thư viện bản đồ tải chậm.
+        if (!isPreview) {
+            sendHeartbeat();
+            setInterval(sendHeartbeat, 3000);
+            let entry = newEventId();
+            try {
+                const savedEntry = sessionStorage.getItem('ag_entry_event');
+                if (savedEntry) entry = savedEntry;
+                else sessionStorage.setItem('ag_entry_event', entry);
+            } catch {
+                // Vẫn ghi nhận lượt này khi trình duyệt chặn lưu trữ phiên.
+            }
+            sendEvent('/api/QrGuide/entry', entry).catch(() => {});
+        }
+
+        // Giới hạn phạm vi di chuyển của bản đồ trong khu vực di tích
+        const southWest = L.latLng(10.7740, 106.6870);
+        const northEast = L.latLng(10.7840, 106.6970);
+        const museumBounds = L.latLngBounds(southWest, northEast);
+
+        // Khởi tạo bản đồ Leaflet
+        const map = L.map('map', {
+            zoomControl: false,
+            minZoom: 16,
+            maxZoom: 22,
+            maxBounds: museumBounds,
+            maxBoundsViscosity: 0.6
+        }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+
+        // Nạp lớp ảnh vệ tinh Google Maps Hybrid
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 22,
+            maxNativeZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Map &copy; Google Satellite Imagery'
+        }).addTo(map);
+
+        // Cập nhật giá trị hiển thị thước tỉ lệ khoảng cách theo mức phóng to
+        function updateScaleBox() {
+            const scaleBox = document.getElementById('glassScaleBox');
+            const scaleBarLine = document.getElementById('scaleBarLine');
+            const scaleText = document.getElementById('scaleText');
+            if (!scaleBox || !scaleBarLine || !scaleText) return;
+
+            const centerLatLng = map.getCenter();
+            const targetPixels = 75;
+            const p1 = map.latLngToContainerPoint(centerLatLng);
+            const p2 = L.point(p1.x + targetPixels, p1.y);
+            const latLng2 = map.containerPointToLatLng(p2);
+            const rawMeters = centerLatLng.distanceTo(latLng2);
+
+            const niceMeters = getNiceScaleDistance(rawMeters);
+            const actualPixelWidth = Math.max(30, Math.min(115, Math.round(targetPixels * (niceMeters / rawMeters))));
+
+            scaleBarLine.style.width = actualPixelWidth + 'px';
+            scaleText.innerText = niceMeters >= 1000 ? (niceMeters / 1000) + ' km' : niceMeters + ' m';
+
+            scaleBox.classList.add('visible');
+            clearTimeout(scaleFadeTimeout);
+            scaleFadeTimeout = setTimeout(() => {
+                scaleBox.classList.remove('visible');
+            }, 2500);
+        }
+
+        // Chọn các số tròn trịa cho thước tỉ lệ
+        function getNiceScaleDistance(meters) {
+            const niceNumbers = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+            let closest = niceNumbers[0];
+            let minDiff = Infinity;
+            for (const n of niceNumbers) {
+                const diff = Math.abs(n - meters);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = n;
+                }
+            }
+            return closest;
+        }
+
+        map.on('zoom zoomend moveend', updateScaleBox);
+
+        // Đặt lại góc nhìn bản đồ về tọa độ mặc định hướng Bắc
+        function resetOrientationNorth() {
+            const compass = document.getElementById('compassIcon');
+            if (compass) {
+                compass.style.transform = 'rotate(-360deg)';
+                setTimeout(() => { compass.style.transform = 'rotate(0deg)'; }, 400);
+            }
+            map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+                animate: true,
+                duration: 0.8
+            });
+        }
+
+        // Bật hoặc tắt hộp chọn ngôn ngữ
+        function toggleLangDropdown() {
+            const dd = document.getElementById('langDropdown');
+            if (dd) dd.classList.toggle('show');
+        }
+
+        // Chuyển đổi ngôn ngữ và tải lại trang với tham số lang mới
+        function changeLanguage(selectedLang) {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('lang', selectedLang);
+            window.location.href = currentUrl.toString();
+        }
+
+        // Mở hoặc đóng bảng chọn tầng
+        function toggleFloorPanel() {
+            const ctrl = document.getElementById('verticalFloorCtrl');
+            if (ctrl) ctrl.classList.toggle('collapsed');
+        }
+
+        const floorVisualOrder = [0, 1, 2, -1];
+
+        // Tăng giảm tầng theo bước nhảy
+        function changeFloorStep(delta) {
+            let currentIndex = floorVisualOrder.indexOf(currentFloor);
+            if (currentIndex === -1) currentIndex = 3;
+            let nextIndex = currentIndex + delta;
+
+            if (nextIndex >= 0 && nextIndex < floorVisualOrder.length) {
+                switchFloor(floorVisualOrder[nextIndex]);
+            }
+        }
+
+        // Chuyển sang xem tầng cụ thể (-1: Tất cả, 0: Trệt, 1: Tầng 1, 2: Tầng 2)
+        function switchFloor(floor) {
+            currentFloor = floor;
+            document.querySelectorAll('.floor-item-btn').forEach(btn => btn.classList.remove('active'));
+
+            let activeBtnId = 'fBtnAll';
+            let badgeLabel = 'A';
+
+            if (floor === 0) {
+                activeBtnId = 'fBtn0';
+                badgeLabel = 'G';
+            } else if (floor === 1) {
+                activeBtnId = 'fBtn1';
+                badgeLabel = '1';
+            } else if (floor === 2) {
+                activeBtnId = 'fBtn2';
+                badgeLabel = '2';
+            }
+
+            const activeBtn = document.getElementById(activeBtnId);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const floorBadge = document.getElementById('currentFloorBadge');
+            if (floorBadge) floorBadge.innerText = badgeLabel;
+
+            renderMarkers();
+        }
+
+        // Vẽ các điểm ghim POI lên bản đồ theo tầng đang lọc
+        function renderMarkers() {
+            mapMarkers.forEach(m => map.removeLayer(m));
+            mapMarkers = [];
+
+            const displayedPois = (currentFloor === -1)
+                ? poisData
+                : poisData.filter(p => p.floor === currentFloor);
+
+            displayedPois.forEach(poi => {
+                const pinIcon = L.divIcon({
+                    className: 'custom-poi-pin',
+                    html: `<div style='background:#dc2626; color:white; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.7); border:2.5px solid #ffffff; font-size:16px; font-weight:800; cursor:pointer; transition:transform 0.15s ease;'>📍</div>`,
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17],
+                    popupAnchor: [0, -18]
+                });
+
+                const marker = L.marker([poi.lat, poi.lng], { icon: pinIcon }).addTo(map);
+
+                const realImg = getPoiRealImage(poi);
+                const floorText = poi.floor === 0 ? 'Trệt (G)' : 'Tầng ' + poi.floor;
+                const fallbackUrl = generateInlineHeritageSvg(poi.title);
+
+                const popupContent = `
+                    <div style='display:flex; align-items:center; gap:12px; min-width:220px;'>
+                        <img src='${escapeHtml(realImg)}'  referrerpolicy="no-referrer" style='width:52px; height:52px; border-radius:12px; object-fit:cover; border:1.5px solid rgba(255,255,255,0.6); box-shadow: 0 4px 10px rgba(0,0,0,0.3);' />
+                        <div>
+                            <div style='font-weight:800; font-size:13px; color:#ffffff;'>${escapeHtml(poi.title)}</div>
+                            <div style='font-size:10.5px; color:#e2e8f0; margin-top:3px;'>🏛️ ${escapeHtml(floorText)}</div>
+                        </div>
+                    </div>
+                `;
+                marker.bindPopup(popupContent, { closeButton: false });
+
+                marker.on('mouseover', () => {
+                    showPoiPreview(poi);
+                    marker.openPopup();
+                });
+
+                marker.on('click', () => {
+                    openAndPlayPoi(poi);
+                });
+
+                mapMarkers.push(marker);
+            });
+
+            if (displayedPois.length > 0 && currentFloor !== -1) {
+                map.panTo([displayedPois[0].lat, displayedPois[0].lng]);
+            }
+        }
+
+        // Hiển thị thẻ xem trước thông tin hiện vật
+        function showPoiPreview(poi) {
+            previewingPoi = poi;
+            const previewCard = document.getElementById('glassPreviewCard');
+            const previewImg = document.getElementById('previewImg');
+            const previewTitle = document.getElementById('previewTitle');
+            const previewFloor = document.getElementById('previewFloor');
+
+            if (!previewCard || !previewImg || !previewTitle) return;
+
+            const fallbackUrl = generateInlineHeritageSvg(poi.title);
+            previewImg.onerror = function() {
+                this.onerror = null;
+                this.src = fallbackUrl;
+            };
+            previewImg.src = getPoiRealImage(poi);
+
+            previewTitle.innerText = poi.title;
+            const floorText = poi.floor === 0 ? '🏛️ Trệt (G)' : '🏢 Tầng ' + poi.floor;
+            previewFloor.innerText = floorText;
+
+            previewCard.style.display = 'flex';
+        }
+
+        // Đóng thẻ xem trước
+        function closePreviewCard() {
+            const previewCard = document.getElementById('glassPreviewCard');
+            if (previewCard) previewCard.style.display = 'none';
+            previewingPoi = null;
+        }
+
+        // Bấm nghe từ nút trên thẻ xem trước
+        function playCurrentPreviewPoi() {
+            if (previewingPoi) {
+                openAndPlayPoi(previewingPoi);
+            }
+        }
+
+        // Ước tính thời lượng đọc dựa theo số ký tự và đặc trưng từng ngôn ngữ
+        function calculateAccurateDuration(text, lang) {
+            const l = (lang || '').toLowerCase();
+            let charsPerSec = 15;
+            if (l.startsWith('zh')) charsPerSec = 4.5;
+            else if (l.startsWith('ru')) charsPerSec = 13.5;
+            else if (l.startsWith('vi')) charsPerSec = 19.0;
+            else if (l.startsWith('fr')) charsPerSec = 15.5;
+            else charsPerSec = 15.0;
+
+            const rateAdjusted = (l.startsWith('vi')) ? (currentRate * 1.15) : currentRate;
+            const baseDuration = text.length / charsPerSec;
+            return Math.max(5, Math.round(baseDuration / (rateAdjusted / currentRate)));
+        }
+
+        // Chọn và kích hoạt thuyết minh cho một POI
+        function openAndPlayPoi(poi) {
+            if (!poi) return;
+            selectedPoi = poi;
+            showPoiPreview(poi);
+
+            playbackEventId=newEventId();playbackRecorded=false;
+            activeLangPrefix=poi.languageCode||resolvedLang;
+            activeLangCode=({vi:'vi-VN',en:'en-US',zh:'zh-CN',fr:'fr-FR',ru:'ru-RU'})[activeLangPrefix]||'vi-VN';
+            if (!isPreview) {
+                sendEvent('/api/QrGuide/poi-view/' + encodeURIComponent(poi.code), newEventId()).catch(() => {});
+            }
+            map.panTo([poi.lat, poi.lng]);
+
+            const glassBox = document.getElementById('glassPlayerBox');
+            const toggleCircle = document.getElementById('playerToggleCircle');
+
+            if (glassBox) glassBox.style.display = 'block';
+            if (toggleCircle) toggleCircle.style.display = 'none';
+            isMinimized = false;
+
+            const titleEl = document.getElementById('playerTitle');
+            if (titleEl) titleEl.innerText = '🎧 ' + poi.title;
+
+            fullUtteranceText = cleanTextForSpeech(poi.title + '. ' + poi.desc);
+            estimatedTotalDuration = calculateAccurateDuration(fullUtteranceText, activeLangPrefix);
+
+            const timeTotalEl = document.getElementById('timeTotal');
+            if (timeTotalEl) timeTotalEl.innerText = formatTime(estimatedTotalDuration);
+
+            currentPlaybackSec = 0;
+            startPlaybackAtSecond(0);
+            sendHeartbeat();
+            renderPoiMenuContent();
+        }
+
+        // Đóng/mở menu danh sách địa điểm
+        function togglePoiMenu() {
+            const menu = document.getElementById('glassPoiMenu');
+            if (!menu) return;
+            isMenuOpen = !isMenuOpen;
+            if (isMenuOpen) {
+                menu.style.display = 'flex';
+                renderPoiMenuContent();
+            } else {
+                menu.style.display = 'none';
+            }
+        }
+
+        // Lọc menu danh sách theo tầng
+        function filterMenuByFloor(floor, btn) {
+            menuFloorFilter = floor;
+            document.querySelectorAll('.menu-filter-pill').forEach(p => p.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            renderPoiMenuContent();
+        }
+
+        // Vẽ danh sách thẻ hiện vật bên trong menu
+        function renderPoiMenuContent() {
+            const listEl = document.getElementById('poiMenuScrollList');
+            if (!listEl) return;
+
+            let filtered = poisData;
+            if (menuFloorFilter !== -1) {
+                filtered = poisData.filter(p => p.floor === menuFloorFilter);
+            }
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div style='display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#e2e8f0; font-size:12px; gap:6px;'>
+                        <span style='font-size:26px; opacity:0.8;'>🏛️</span>
+                        <span>Không có địa điểm nào ở tầng này.</span>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(poi => {
+                const isCurrentPlaying = selectedPoi && selectedPoi.id === poi.id && isSpeaking && !isPaused;
+                const floorText = poi.floor === 0 ? 'Trệt (G)' : 'Tầng ' + poi.floor;
+                const activeClass = isCurrentPlaying ? 'playing-active' : '';
+                const realImg = getPoiRealImage(poi);
+                const fallbackUrl = generateInlineHeritageSvg(poi.title);
+
+                let statusHtml = `<span class='poi-status-tag status-ready'>🟢 Sẵn sàng</span>`;
+                if (isCurrentPlaying) {
+                    statusHtml = `<span class='poi-status-tag status-playing'>🔊 Đang đọc</span>`;
+                }
+
+                html += `
+                    <div class='poi-card-item ${activeClass}'
+                         onmouseenter='showPoiPreviewFromMenu(${poi.id})'
+                         onclick='onSelectPoiFromMenu(${poi.id})'>
+                        <img class='poi-thumb-mini' src='${escapeHtml(realImg)}'  referrerpolicy="no-referrer" alt='${escapeHtml(poi.title)}' />
+                        <div class='poi-info'>
+                            <div class='poi-name'>${escapeHtml(poi.title)}</div>
+                            <div class='poi-meta'>
+                                <span class='poi-badge-floor'>${escapeHtml(floorText)}</span>
+                            </div>
+                        </div>
+                        <div style='display:flex; flex-direction:column; align-items:flex-end; gap:3px;'>
+                            ${statusHtml}
+                            <span style='font-size:10px; color:#ffffff;'>Nghe ➔</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        function showPoiPreviewFromMenu(poiId) {
+            const targetPoi = poisData.find(p => p.id === poiId);
+            if (targetPoi) {
+                showPoiPreview(targetPoi);
+            }
+        }
+
+        function onSelectPoiFromMenu(poiId) {
+            const targetPoi = poisData.find(p => p.id === poiId);
+            if (targetPoi) {
+                openAndPlayPoi(targetPoi);
+                if (window.innerWidth <= 600) {
+                    togglePoiMenu();
+                }
+            }
+        }
+
+        // Thu nhỏ hoặc phóng to khung thuyết minh
+        function toggleMinimizePlayer() {
+            const box = document.getElementById('glassPlayerBox');
+            const toggleCircle = document.getElementById('playerToggleCircle');
+            isMinimized = !isMinimized;
+
+            if (isMinimized) {
+                if (box) box.style.display = 'none';
+                if (toggleCircle) toggleCircle.style.display = 'flex';
+            } else {
+                if (box) box.style.display = 'block';
+                if (toggleCircle) toggleCircle.style.display = 'none';
+            }
+        }
+
+        // Đóng hoàn toàn khung thuyết minh và dừng đọc
+        function closePlayerBox() {
+            stopVoice();
+            selectedPoi = null;
+            const box = document.getElementById('glassPlayerBox');
+            const circle = document.getElementById('playerToggleCircle');
+            if (box) box.style.display = 'none';
+            if (circle) circle.style.display = 'none';
+            sendHeartbeat();
+            renderPoiMenuContent();
+        }
+
+        function toggleSpeedDropdown(e) {
+            e.stopPropagation();
+            const dd = document.getElementById('speedDropdown');
+            if (dd) dd.classList.toggle('show');
+        }
+
+        // Thiết lập tốc độ đọc
+        function selectSpeed(rate) {
+            currentRate = rate;
+            const speedLabel = document.getElementById('speedLabel');
+            if (speedLabel) speedLabel.innerText = rate.toFixed(1) + 'x';
+
+            document.querySelectorAll('.speed-option').forEach(opt => {
+                opt.classList.toggle('active', opt.innerText.includes(rate.toFixed(1)));
+            });
+
+            const dd = document.getElementById('speedDropdown');
+            if (dd) dd.classList.remove('show');
+
+            if (isSpeaking && fullUtteranceText) {
+                estimatedTotalDuration = calculateAccurateDuration(fullUtteranceText, activeLangPrefix);
+                const timeTotalEl = document.getElementById('timeTotal');
+                if (timeTotalEl) timeTotalEl.innerText = formatTime(estimatedTotalDuration);
+                startPlaybackAtSecond(currentPlaybackSec);
+            }
+        }
+
+        // Làm sạch văn bản trước khi đưa vào bộ đọc giọng nói
+        function cleanTextForSpeech(text) {
+            if (!text) return '';
+            return text
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/POI-[A-Za-z0-9_-]+/gi, '')
+                .replace(/[\r\n\t]+/g, '. ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
+        // Tìm kiếm giọng đọc phù hợp nhất với ngôn ngữ hiện tại
+        function findVoiceForLanguage(langCode) {
+            if (!cachedVoices || cachedVoices.length === 0) refreshVoices();
+            if (!cachedVoices || cachedVoices.length === 0) return null;
+
+            const cleanCode = langCode.toLowerCase().replace('_', '-');
+            const prefix = cleanCode.split('-')[0];
+
+            let matched = cachedVoices.filter(v => {
+                const vLang = v.lang.toLowerCase().replace('_', '-');
+                return vLang === cleanCode || vLang.startsWith(prefix);
+            });
+
+            if (matched.length === 0) {
+                const nameKeywords = {
+                    'ru': ['russian', 'русский', 'russia', 'ru-'],
+                    'vi': ['vietnam', 'tiếng việt', 'vietnamese', 'vi-'],
+                    'zh': ['chinese', 'mandarin', '中文', 'china', 'zh-'],
+                    'fr': ['french', 'français', 'france', 'fr-'],
+                    'en': ['english', 'en-']
+                };
+                const keywords = nameKeywords[prefix] || [prefix];
+                matched = cachedVoices.filter(v => {
+                    const vName = v.name.toLowerCase();
+                    const vLang = v.lang.toLowerCase();
+                    return keywords.some(k => vName.includes(k) || vLang.includes(k));
+                });
+            }
+
+            if (matched.length === 0) return null;
+
+            const premiumVoice = matched.find(v => {
+                const n = v.name.toLowerCase();
+                return n.includes('natural') || n.includes('online') || n.includes('google') || n.includes('neural') || n.includes('hoaimy') || n.includes('linh');
+            });
+
+            return premiumVoice || matched[0];
+        }
+
+        // Bắt đầu phát âm thanh tại số giây chỉ định (tương thích cả Web Speech API và iOS Safari)
+        function startPlaybackAtSecond(startSec) {
+            const generation=++audioGeneration;
+            if (!fullUtteranceText) return;
+
+            isUserSeeking = false;
+
+            // Hủy giọng đọc Web Speech cũ
+            if ('speechSynthesis' in window) synth.cancel();
+            // Tạm dừng file âm thanh HTML5 Audio cũ
+            if (activeAudioElement) {
+                activeAudioElement.pause();
+                activeAudioElement = null;
+            }
+            stopProgressTicker();
+
+            startSec = Math.max(0, Math.min(startSec, estimatedTotalDuration));
+            currentPlaybackSec = startSec;
+            playbackStartOffsetSec = startSec;
+
+            // Tính toán đoạn chuỗi văn bản còn lại dựa trên tiến trình tua
+            const progressRatio = estimatedTotalDuration > 0 ? (startSec / estimatedTotalDuration) : 0;
+            const startChar = Math.floor(progressRatio * fullUtteranceText.length);
+            const remainingText = fullUtteranceText.substring(startChar);
+
+            if (!remainingText.trim() || startSec >= estimatedTotalDuration) {
+                autoCloseOnEnd();
+                return;
+            }
+
+            isSpeaking = true;
+            isPaused = false;
+            playbackStartTime = performance.now();
+            updatePlayButtonUI(true);
+            startProgressTicker();
+
+            // Tìm giọng đọc chuẩn
+            const bestVoice = findVoiceForLanguage(activeLangCode);
+
+            if (bestVoice && 'speechSynthesis' in window) {
+                const utter = new SpeechSynthesisUtterance(remainingText);
+                utter.voice = bestVoice;
+                utter.lang = bestVoice.lang || activeLangCode;
+
+                // Tăng tốc độ đọc tiếng Việt lên 1.15x cho tự nhiên hơn
+                if (activeLangPrefix === 'vi') {
+                    utter.rate = currentRate * 1.15;
+                } else {
+                    utter.rate = currentRate;
+                }
+
+                utter.volume = isMuted ? 0 : currentVolume;
+                window.activeUtterance = utter;
+
+                utter.onstart = function() {
+                    if(generation!==audioGeneration)return;recordPlayback();
+                    playbackStartTime = performance.now();
+                    sendHeartbeat();
+                    renderPoiMenuContent();
+                };
+
+                utter.onend = function() {
+                    if(generation!==audioGeneration)return;
+                    if (!isUserSeeking) {
+                        finishProgressInstantly();
+                    }
+                };
+
+                utter.onerror = function(e) {
+                    if(generation!==audioGeneration)return;
+                    if (e.error !== 'interrupted' && e.error !== 'canceled') {
+                        playOnlineTtsFallback(remainingText, activeLangPrefix);
+                    }
+                };
+
+                // Phát trực tiếp không qua setTimeout để giữ User Gesture tương thích với iOS Safari
+                try {
+                    synth.speak(utter);
+                } catch (err) {
+                    playOnlineTtsFallback(remainingText, activeLangPrefix);
+                }
+
+            } else {
+                playOnlineTtsFallback(remainingText, activeLangPrefix);
+            }
+        }
+
+        // Dự phòng phát âm thanh qua dịch vụ Google Translate TTS khi trình duyệt thiếu giọng đọc
+        function playOnlineTtsFallback(text, lang) {
+            const generation=audioGeneration;
+            stopProgressTicker();
+            if(activeAudioElement)activeAudioElement.pause();
+            // Split every character into sequential requests; never drop the tail of the narrative.
+            const chunks=[];let rest=text;
+            while(rest.length){let end=Math.min(180,rest.length);if(end<rest.length){const space=rest.lastIndexOf(' ',end);if(space>90)end=space;}chunks.push(rest.slice(0,end));rest=rest.slice(end);}
+            let index=0;
+            const failed=()=>{if(generation!==audioGeneration)return;autoCloseOnEnd();alert('Không phát được giọng đọc. Bạn có thể đọc nội dung hoặc cài giọng '+lang+' trên thiết bị.');};
+            const playNext=()=>{
+                if(generation!==audioGeneration)return;
+                if(index>=chunks.length){finishProgressInstantly();return;}
+                const url='https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl='+encodeURIComponent(lang)+'&q='+encodeURIComponent(chunks[index++]);
+                activeAudioElement=new Audio(url);activeAudioElement.playbackRate=currentRate;activeAudioElement.volume=isMuted?0:currentVolume;
+                activeAudioElement.onplay=()=>{if(generation!==audioGeneration)return;isSpeaking=true;isPaused=false;recordPlayback();updatePlayButtonUI(true);sendHeartbeat();renderPoiMenuContent();};
+                activeAudioElement.onended=playNext;activeAudioElement.onerror=failed;activeAudioElement.play().catch(failed);
+            };
+            playNext();
+        }
+
+        // Đồng hồ đếm bước nhảy tiến trình thời gian thực (100ms một lần)
+        function startProgressTicker() {
+            stopProgressTicker();
+            progressInterval = setInterval(() => {
+                if (!isSpeaking || isPaused || isUserSeeking) return;
+
+                const effectiveRate = (activeLangPrefix === 'vi') ? (currentRate * 1.15) : currentRate;
+                const elapsed = ((performance.now() - playbackStartTime) / 1000) * effectiveRate;
+                currentPlaybackSec = Math.min(estimatedTotalDuration, playbackStartOffsetSec + elapsed);
+
+                const pct = estimatedTotalDuration > 0 ? (currentPlaybackSec / estimatedTotalDuration) * 100 : 0;
+
+                const seekSlider = document.getElementById('seekSlider');
+                if (seekSlider) seekSlider.value = Math.min(99.5, Math.max(0, pct));
+
+                const timeCur = document.getElementById('timeCurrent');
+                if (timeCur) timeCur.innerText = formatTime(Math.floor(currentPlaybackSec));
+
+                // Estimated progress does not terminate speech; the audio end event does.
+            }, 100);
+        }
+
+        function stopProgressTicker() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        }
+
+        function finishProgressInstantly() {
+            stopProgressTicker();
+            const seekSlider = document.getElementById('seekSlider');
+            const timeCur = document.getElementById('timeCurrent');
+            if (seekSlider) seekSlider.value = 100;
+            if (timeCur) timeCur.innerText = formatTime(estimatedTotalDuration);
+            setTimeout(() => {
+                autoCloseOnEnd();
+            }, 300);
+        }
+
+        function updatePlayButtonUI(isPlaying) {
+            const playIcon = document.getElementById('playIcon');
+            if (playIcon) playIcon.innerText = isPlaying ? '⏸' : '▶';
+        }
+
+        function autoCloseOnEnd() {
+            stopVoice();
+            const box = document.getElementById('glassPlayerBox');
+            const circle = document.getElementById('playerToggleCircle');
+            if (box) box.style.display = 'none';
+            if (circle) circle.style.display = 'none';
+            sendHeartbeat();
+            renderPoiMenuContent();
+        }
+
+        // Chuyển đổi trạng thái Phát / Tạm dừng
+        function toggleVoice() {
+            if (!selectedPoi) return;
+
+            if (!isSpeaking) {
+                startPlaybackAtSecond(currentPlaybackSec);
+            } else if (isSpeaking && !isPaused) {
+                if ('speechSynthesis' in window) synth.pause();
+                if (activeAudioElement) activeAudioElement.pause();
+                isPaused = true;
+                stopProgressTicker();
+                updatePlayButtonUI(false);
+                sendHeartbeat();
+                renderPoiMenuContent();
+            } else if (isSpeaking && isPaused) {
+                if (activeAudioElement) {
+                    activeAudioElement.play();
+                } else if ('speechSynthesis' in window) {
+                    synth.resume();
+                }
+                isPaused = false;
+                playbackStartTime = performance.now();
+                playbackStartOffsetSec = currentPlaybackSec;
+                startProgressTicker();
+                updatePlayButtonUI(true);
+                sendHeartbeat();
+                renderPoiMenuContent();
+            }
+        }
+
+        // Khi người dùng đang kéo thanh thời gian
+        function onSeekInput(pct) {
+            isUserSeeking = true;
+            const targetSec = Math.round((parseFloat(pct) / 100) * estimatedTotalDuration);
+            const timeCur = document.getElementById('timeCurrent');
+            if (timeCur) timeCur.innerText = formatTime(targetSec);
+        }
+
+        // Khi người dùng thả tay kết thúc kéo thanh thời gian
+        function onSeekChange(pct) {
+            isUserSeeking = false;
+            const targetSec = Math.round((parseFloat(pct) / 100) * estimatedTotalDuration);
+            startPlaybackAtSecond(targetSec);
+        }
+
+        // Bật/tắt tắt tiếng
+        function toggleMute() {
+            isMuted = !isMuted;
+            const volBtn = document.getElementById('volBtn');
+            const volSlider = document.getElementById('volSlider');
+
+            if (isMuted) {
+                if (volBtn) volBtn.innerText = '🔇';
+                if (volSlider) volSlider.value = 0;
+            } else {
+                if (volBtn) volBtn.innerText = '🔊';
+                if (previousVolume <= 0) previousVolume = 1.0;
+                currentVolume = previousVolume;
+                if (volSlider) volSlider.value = currentVolume;
+            }
+
+            if (activeAudioElement) activeAudioElement.volume = isMuted ? 0 : currentVolume;
+            if (isSpeaking && !activeAudioElement) {
+                startPlaybackAtSecond(currentPlaybackSec);
+            }
+        }
+
+        // Kéo thanh âm lượng
+        function onVolumeSliderInput(val) {
+            currentVolume = parseFloat(val);
+            const volBtn = document.getElementById('volBtn');
+
+            if (currentVolume <= 0) {
+                isMuted = true;
+                if (volBtn) volBtn.innerText = '🔇';
+            } else {
+                isMuted = false;
+                previousVolume = currentVolume;
+                if (volBtn) volBtn.innerText = '🔊';
+            }
+
+            if (activeAudioElement) activeAudioElement.volume = isMuted ? 0 : currentVolume;
+            if (isSpeaking && !activeAudioElement) {
+                startPlaybackAtSecond(currentPlaybackSec);
+            }
+        }
+
+        // Dừng toàn bộ âm thanh
+        function stopVoice() { audioGeneration++;
+            if ('speechSynthesis' in window) synth.cancel();
+            if (activeAudioElement) {
+                activeAudioElement.pause();
+                activeAudioElement = null;
+            }
+            stopProgressTicker();
+            isSpeaking = false;
+            isPaused = false;
+            isUserSeeking = false;
+            currentPlaybackSec = 0;
+            window.activeUtterance = null;
+
+            const seekSlider = document.getElementById('seekSlider');
+            const timeCur = document.getElementById('timeCurrent');
+            if (seekSlider) seekSlider.value = 0;
+            if (timeCur) timeCur.innerText = '00:00';
+            updatePlayButtonUI(false);
+        }
+
+        // Định dạng số giây thành chuỗi mm:ss
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = Math.floor(sec % 60).toString().padStart(2, '0');
+            return m + ':' + s;
+        }
+
+        // Đóng các dropdown khi click ra ngoài
+        document.addEventListener('click', (e) => {
+            const langWrapper = document.querySelector('.lang-wrapper');
+            const langDropdown = document.getElementById('langDropdown');
+            if (langWrapper && !langWrapper.contains(e.target) && langDropdown) {
+                langDropdown.classList.remove('show');
+            }
+
+            const speedWrapper = document.querySelector('.speed-wrapper');
+            const speedDropdown = document.getElementById('speedDropdown');
+            if (speedWrapper && !speedWrapper.contains(e.target) && speedDropdown) {
+                speedDropdown.classList.remove('show');
+            }
+        });
+
+        // Khởi động các dịch vụ và nạp bản đồ khi DOM tải hoàn tất
+        window.addEventListener('DOMContentLoaded', () => {
+            refreshVoices();
+            renderMarkers();
+            setTimeout(() => {
+                map.invalidateSize();
+                updateScaleBox();
+            }, 300);
+
+        });
+    
+        let geoWatch=null,geoBusy=false,lastGeoCall=0,lastAutoPoi=null,lastAutoTime=0;
+        function toggleAutoGps(){
+          const button=document.getElementById('gpsAutoBtn');
+          if(geoWatch!==null){navigator.geolocation.clearWatch(geoWatch);geoWatch=null;button.classList.remove('active');return;}
+          if(isPreview){alert('GPS tự động không bật trong chế độ nghe thử.');return;}
+          if(!navigator.geolocation){alert('Thiết bị không hỗ trợ GPS.');return;}
+          if(currentFloor<0){alert('Hãy chọn tầng G, 1 hoặc 2 trước khi bật GPS.');return;}
+          // The user opted in; the browser may still require a tap on the player to permit audio.
+          button.classList.add('active');
+          geoWatch=navigator.geolocation.watchPosition(async position=>{
+           if(geoBusy||Date.now()-lastGeoCall<5000||document.hidden)return;
+           if(position.coords.accuracy>30)return;
+           geoBusy=true;lastGeoCall=Date.now();
+           try{
+            const response=await fetch('/api/GeoGuide/locate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracyMeters:position.coords.accuracy,sampledAt:new Date(position.timestamp).toISOString(),floor:currentFloor,languageCode:resolvedLang})});
+            if(!response.ok)return;const data=await response.json();
+            if(!data.poiId||isSpeaking&&!isPaused)return;
+            if(lastAutoPoi===data.poiId&&Date.now()-lastAutoTime<120000)return;
+            const poi=poisData.find(p=>p.id===data.poiId);if(poi){lastAutoPoi=poi.id;lastAutoTime=Date.now();openAndPlayPoi(poi);}
+           }catch{}finally{geoBusy=false;}
+          },()=>{button.classList.remove('active');if(geoWatch!==null)navigator.geolocation.clearWatch(geoWatch);geoWatch=null;alert('Chưa lấy được vị trí. Hãy cấp quyền GPS hoặc chọn POI trên bản đồ.');},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+        }
+        window.addEventListener('pagehide',()=>{if(geoWatch!==null)navigator.geolocation.clearWatch(geoWatch);});
+</script>
+</body>
+</html>

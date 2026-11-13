@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "AudioGuide Local (API + Admin)",
+    "Projects": [
+      {
+        "Path": "AudioGuide.API\\AudioGuide.API.csproj",
+        "Action": "Start",
+        "DebugTarget": "AudioGuide.API"
+      },
+      {
+        "Path": "AudioGuide.Admin\\AudioGuide.Admin.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]
