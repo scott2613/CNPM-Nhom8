@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "KYix56TL+GE=",
+  "success": true,
+  "projectFilePath": "D:\\AudioGuideSolution_CapNhatTaiKhoanAdmin\\AudioGuideSolution\\AudioGuide.Core\\AudioGuide.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Chi Bao\\.nuget\\packages\\nettopologysuite\\2.5.0\\nettopologysuite.2.5.0.nupkg.sha512",
+    "C:\\Users\\Chi Bao\\.nuget\\packages\\system.memory\\4.5.4\\system.memory.4.5.4.nupkg.sha512"
+  ],
+  "logs": []
+}
