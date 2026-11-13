@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-<PropertyGroup><TargetFramework>net9.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
-<ItemGroup></ItemGroup>
-<ItemGroup><Compile Include="../Shared/LocalAdminSecrets.cs" Link="LocalAdminSecrets.cs" /></ItemGroup>
-<ItemGroup><Compile Include="../Shared/AdminAccountContracts.cs" Link="AdminAccountContracts.cs" /></ItemGroup>
-</Project>
