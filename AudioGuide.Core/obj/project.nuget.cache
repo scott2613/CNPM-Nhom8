@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "KYix56TL+GE=",
+  "dgSpecHash": "s28FxovLnyc=",
   "success": true,
-  "projectFilePath": "D:\\AudioGuideSolution_CapNhatTaiKhoanAdmin\\AudioGuideSolution\\AudioGuide.Core\\AudioGuide.Core.csproj",
+  "projectFilePath": "C:\\Users\\Admin\\CNPM-Nhom8\\AudioGuide.Core\\AudioGuide.Core.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Chi Bao\\.nuget\\packages\\nettopologysuite\\2.5.0\\nettopologysuite.2.5.0.nupkg.sha512",
-    "C:\\Users\\Chi Bao\\.nuget\\packages\\system.memory\\4.5.4\\system.memory.4.5.4.nupkg.sha512"
+    "C:\\Users\\Admin\\.nuget\\packages\\nettopologysuite\\2.5.0\\nettopologysuite.2.5.0.nupkg.sha512",
+    "C:\\Users\\Admin\\.nuget\\packages\\system.memory\\4.5.4\\system.memory.4.5.4.nupkg.sha512"
   ],
   "logs": []
 }
