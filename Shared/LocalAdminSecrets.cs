@@ -2,12 +2,15 @@ using System.Security.Cryptography;
 
 namespace AudioGuide.LocalDevelopment;
 
+// Quản lý khóa bí mật (API key, password hash) trên máy local khi chạy môi trường Development
 internal static class LocalAdminSecrets
 {
+    // Lưu file cấu hình tạm trong thư mục LocalApplicationData của hệ điều hành (tránh lộ lên Git)
     private static string DirectoryPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AudioGuide", "LocalDevelopment-v1");
 
+    // Đọc API key dùng chung giữa Admin và API; tự tạo mới chuỗi hex 32 byte nếu chưa có
     internal static string ReadOrCreateApiKey()
     {
         var path = Path.Combine(DirectoryPath, "api-key");
@@ -16,12 +19,14 @@ internal static class LocalAdminSecrets
         return File.ReadAllText(path).Trim();
     }
 
+    // Đọc chuỗi hash mật khẩu admin lưu trên máy local (trả về null nếu chưa khởi tạo)
     internal static string? ReadPasswordHash()
     {
         var path = Path.Combine(DirectoryPath, "admin-password-hash");
         return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
     }
 
+    // Ghi file an toàn qua file tạm để tránh xung đột khi Admin và API khởi động cùng lúc
     private static bool TryWrite(string path, string value)
     {
         Directory.CreateDirectory(DirectoryPath);
