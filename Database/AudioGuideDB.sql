@@ -1,4 +1,5 @@
-﻿-- AudioGuideDB.sql | SQL Server / SSMS
+﻿-- AudioGuideDB_QrCode.sql | SQL Server / SSMS
+-- Đổi tên bảng QrCodes thành QrCode. Tên tương thích QrCodes dùng cho truy vấn ứng dụng.
 -- Tạo database nếu chưa có, tạo bảng khi database trống và nạp bộ mẫu 8 POI × 5 ngôn ngữ.
 -- DB đã có dữ liệu: chỉ nâng cấp cấu trúc khi bạn bật @UpgradeLegacy.
 -- Bật @RefreshDemoNarratives nếu muốn thay nội dung cho đúng các mã mẫu 1–8.
@@ -33,6 +34,15 @@ BEGIN TRY
     EXEC @LockResult = sys.sp_getapplock @Resource=N'AudioGuideSchema',
         @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=30000;
     IF @LockResult < 0 THROW 51011, N'Không lấy được khóa nâng cấp. Hãy thử lại.', 1;
+
+    -- Đổi tên bảng hiện có trong cùng giao dịch để giữ dữ liệu và các ràng buộc.
+    IF OBJECT_ID(N'dbo.QrCodes', N'U') IS NOT NULL
+    BEGIN
+        IF OBJECT_ID(N'dbo.QrCode') IS NOT NULL
+            THROW 51022, N'Tên dbo.QrCode đã được sử dụng. Hãy kiểm tra trước khi đổi tên.', 1;
+
+        EXEC sys.sp_rename @objname = N'dbo.QrCodes', @newname = N'QrCode', @objtype = N'OBJECT';
+    END;
 
     IF OBJECT_ID(N'dbo.SchemaVersions', N'U') IS NULL
         CREATE TABLE dbo.SchemaVersions (
@@ -82,7 +92,7 @@ BEGIN TRY
     CONSTRAINT [PK_PoiTranslations] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_PoiTranslations_Pois_PoiId] FOREIGN KEY ([PoiId]) REFERENCES [Pois] ([Id]) ON DELETE CASCADE
 );';
-        EXEC sys.sp_executesql N'CREATE TABLE [QrCodes] (
+        EXEC sys.sp_executesql N'CREATE TABLE [QrCode] (
     [Id] int NOT NULL IDENTITY,
     [PoiId] int NULL,
     [QrToken] nvarchar(64) NOT NULL,
@@ -113,8 +123,8 @@ BEGIN TRY
         EXEC sys.sp_executesql N'CREATE INDEX [IX_Pois_Floor] ON [Pois] ([Floor]);';
         EXEC sys.sp_executesql N'CREATE INDEX [IX_Pois_IsActive] ON [Pois] ([IsActive]);';
         EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_PoiTranslations_PoiId_LanguageCode] ON [PoiTranslations] ([PoiId], [LanguageCode]);';
-        EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_QrCodes_PoiId] ON [QrCodes] ([PoiId]) WHERE [PoiId] IS NOT NULL;';
-        EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_QrCodes_QrToken] ON [QrCodes] ([QrToken]);';
+        EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_QrCodes_PoiId] ON [QrCode] ([PoiId]) WHERE [PoiId] IS NOT NULL;';
+        EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_QrCodes_QrToken] ON [QrCode] ([QrToken]);';
         EXEC sys.sp_executesql N'CREATE UNIQUE INDEX [IX_QrScanLogs_EventId] ON [QrScanLogs] ([EventId]) WHERE [EventId] IS NOT NULL;';
         EXEC sys.sp_executesql N'CREATE INDEX [IX_QrScanLogs_EventType_ScannedAt] ON [QrScanLogs] ([EventType], [ScannedAt]);';
         EXEC sys.sp_executesql N'CREATE INDEX [IX_QrScanLogs_PoiId] ON [QrScanLogs] ([PoiId]);';
@@ -124,7 +134,7 @@ BEGIN TRY
         INSERT dbo.SchemaVersions(Name, Sha256) VALUES (N'001_InitialSchema.sql', 'BFD0EEB2955A5D252194A756C1A82DA7A7A364A18C7EDB45D82F23130B02DBE3');
     END
     ELSE IF OBJECT_ID(N'dbo.PoiTranslations', N'U') IS NULL
-         OR OBJECT_ID(N'dbo.QrCodes', N'U') IS NULL
+         OR OBJECT_ID(N'dbo.QrCode', N'U') IS NULL
          OR OBJECT_ID(N'dbo.DeviceSessions', N'U') IS NULL
          OR OBJECT_ID(N'dbo.QrScanLogs', N'U') IS NULL
         THROW 51013, N'Database thiếu bảng AudioGuide. Kiểm tra schema trước khi tiếp tục.', 1;
@@ -153,41 +163,41 @@ IF COL_LENGTH(''dbo.DeviceSessions'',''PreferredLanguage'') IS NULL ALTER TABLE 
         EXEC sys.sp_executesql N'UPDATE dbo.DeviceSessions SET PreferredLanguage=N''vi'' WHERE PreferredLanguage IS NULL;
 ALTER TABLE dbo.DeviceSessions ALTER COLUMN PreferredLanguage nvarchar(10) NOT NULL;
 -- Abort on inconsistent historical data; do not silently delete duplicates.
-IF EXISTS(SELECT PoiId FROM dbo.QrCodes WHERE PoiId IS NOT NULL GROUP BY PoiId HAVING COUNT(*)>1) THROW 51001,''Duplicate QR PoiId; reconcile before upgrading'',1;
-IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(''dbo.QrCodes'') AND name=''IX_QrCodes_PoiId'') CREATE UNIQUE INDEX IX_QrCodes_PoiId ON dbo.QrCodes(PoiId) WHERE PoiId IS NOT NULL;
+IF EXISTS(SELECT PoiId FROM dbo.QrCode WHERE PoiId IS NOT NULL GROUP BY PoiId HAVING COUNT(*)>1) THROW 51001,''Duplicate QR PoiId; reconcile before upgrading'',1;
+IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(''dbo.QrCode'') AND name=''IX_QrCodes_PoiId'') CREATE UNIQUE INDEX IX_QrCodes_PoiId ON dbo.QrCode(PoiId) WHERE PoiId IS NOT NULL;
 IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(''dbo.QrScanLogs'') AND name=''IX_QrScanLogs_EventId'') CREATE UNIQUE INDEX IX_QrScanLogs_EventId ON dbo.QrScanLogs(EventId) WHERE EventId IS NOT NULL;
 IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(''dbo.QrScanLogs'') AND name=''IX_QrScanLogs_EventType_ScannedAt'') CREATE INDEX IX_QrScanLogs_EventType_ScannedAt ON dbo.QrScanLogs(EventType,ScannedAt);
 IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(''dbo.QrScanLogs'') AND name=''IX_QrScanLogs_VisitorId_ScannedAt'') CREATE INDEX IX_QrScanLogs_VisitorId_ScannedAt ON dbo.QrScanLogs(VisitorId,ScannedAt);
 DECLARE @drop nvarchar(max)=N'''';
-SELECT @drop+=N''ALTER TABLE dbo.QrCodes DROP CONSTRAINT ''+QUOTENAME(name)+N'';'' FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(''dbo.QrCodes'') AND referenced_object_id=OBJECT_ID(''dbo.Pois'');
+SELECT @drop+=N''ALTER TABLE dbo.QrCode DROP CONSTRAINT ''+QUOTENAME(name)+N'';'' FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(''dbo.QrCode'') AND referenced_object_id=OBJECT_ID(''dbo.Pois'');
 EXEC sp_executesql @drop;
-ALTER TABLE dbo.QrCodes ADD CONSTRAINT FK_QrCodes_Pois_Upgrade FOREIGN KEY(PoiId) REFERENCES dbo.Pois(Id) ON DELETE SET NULL;
+ALTER TABLE dbo.QrCode ADD CONSTRAINT FK_QrCodes_Pois_Upgrade FOREIGN KEY(PoiId) REFERENCES dbo.Pois(Id) ON DELETE SET NULL;
 IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE name=''FK_QrScanLogs_Pois_PoiId'') ALTER TABLE dbo.QrScanLogs ADD CONSTRAINT FK_QrScanLogs_Pois_PoiId FOREIGN KEY(PoiId) REFERENCES dbo.Pois(Id) ON DELETE SET NULL;
-UPDATE dbo.QrCodes SET PoiId=NULL WHERE QrToken=N''MUSEUM-MAIN-ENTRY'';
-UPDATE dbo.QrCodes SET IsActive=0 WHERE QrToken<>N''MUSEUM-MAIN-ENTRY'';
-IF NOT EXISTS(SELECT 1 FROM dbo.QrCodes WHERE QrToken=N''MUSEUM-MAIN-ENTRY'') INSERT dbo.QrCodes(PoiId,QrToken,ScanCount,IsActive) VALUES(NULL,N''MUSEUM-MAIN-ENTRY'',0,1);
+UPDATE dbo.QrCode SET PoiId=NULL WHERE QrToken=N''MUSEUM-MAIN-ENTRY'';
+UPDATE dbo.QrCode SET IsActive=0 WHERE QrToken<>N''MUSEUM-MAIN-ENTRY'';
+IF NOT EXISTS(SELECT 1 FROM dbo.QrCode WHERE QrToken=N''MUSEUM-MAIN-ENTRY'') INSERT dbo.QrCode(PoiId,QrToken,ScanCount,IsActive) VALUES(NULL,N''MUSEUM-MAIN-ENTRY'',0,1);
 -- Existing gate IsActive is preserved: an intentionally disabled gate is not silently enabled.';
         INSERT dbo.SchemaVersions(Name, Sha256) VALUES (N'002_UpgradeLegacy.sql', 'F0838C8EDBE2BCCDC29C0D3F0752FDCFAD7703FCA128C094F9000E67D9BE1C18');
     END;
 
     -- Chỉ một token cổng được phép hoạt động. Giữ QR cũ dưới dạng bản ghi vô hiệu.
-    IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.QrCodes') AND name=N'CK_QrCodes_OnlyActiveGate')
+    IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.QrCode') AND name=N'CK_QrCodes_OnlyActiveGate')
     BEGIN
         IF @UpgradeLegacy = 1
             EXEC sys.sp_executesql N'
-                UPDATE dbo.QrCodes SET PoiId = NULL WHERE QrToken = N''MUSEUM-MAIN-ENTRY'' AND PoiId IS NOT NULL;
-                UPDATE dbo.QrCodes SET IsActive = 0 WHERE QrToken <> N''MUSEUM-MAIN-ENTRY'' AND IsActive = 1;';
+                UPDATE dbo.QrCode SET PoiId = NULL WHERE QrToken = N''MUSEUM-MAIN-ENTRY'' AND PoiId IS NOT NULL;
+                UPDATE dbo.QrCode SET IsActive = 0 WHERE QrToken <> N''MUSEUM-MAIN-ENTRY'' AND IsActive = 1;';
         EXEC sys.sp_executesql N'
-            IF EXISTS (SELECT 1 FROM dbo.QrCodes WHERE IsActive = 1 AND (QrToken <> N''MUSEUM-MAIN-ENTRY'' OR PoiId IS NOT NULL))
+            IF EXISTS (SELECT 1 FROM dbo.QrCode WHERE IsActive = 1 AND (QrToken <> N''MUSEUM-MAIN-ENTRY'' OR PoiId IS NOT NULL))
                 THROW 51018, N''Còn mã QR cũ đang hoạt động. Sao lưu rồi bật @UpgradeLegacy để chuẩn hóa về một QR cổng.'', 1;
-            ALTER TABLE dbo.QrCodes WITH CHECK ADD CONSTRAINT CK_QrCodes_OnlyActiveGate
+            ALTER TABLE dbo.QrCode WITH CHECK ADD CONSTRAINT CK_QrCodes_OnlyActiveGate
             CHECK (IsActive = 0 OR (QrToken = N''MUSEUM-MAIN-ENTRY'' AND PoiId IS NULL));';
     END;
 
     -- Mã cổng cần có cả khi bỏ qua dữ liệu mẫu. Giữ nguyên mã đã bị tắt chủ động.
     EXEC sys.sp_executesql N'
-        IF NOT EXISTS (SELECT 1 FROM dbo.QrCodes WHERE QrToken = N''MUSEUM-MAIN-ENTRY'')
-            INSERT dbo.QrCodes (PoiId, QrToken, ScanCount, IsActive)
+        IF NOT EXISTS (SELECT 1 FROM dbo.QrCode WHERE QrToken = N''MUSEUM-MAIN-ENTRY'')
+            INSERT dbo.QrCode (PoiId, QrToken, ScanCount, IsActive)
             VALUES (NULL, N''MUSEUM-MAIN-ENTRY'', 0, 1);';
 
     -- Truy vấn đếm lượt nghe theo điểm chỉ đọc các sự kiện PlayStarted hợp lệ.
@@ -283,12 +293,12 @@ VALUES
 (8, N''fr'', N''Nguyễn Thị Bình et la voie diplomatique'', N''Cette section présente Nguyễn Thị Bình à travers son action diplomatique et les négociations de Paris. En lisant les documents, observez le rôle du dialogue dans la recherche d’une issue politique à la guerre. Négocier exige de se préparer, d’écouter et de défendre patiemment une position. Son parcours invite à réfléchir à la place des femmes dans la diplomatie et aux efforts en faveur de la paix.'', N'''', 0),
 (8, N''ru'', N''Нгуен Тхи Бинь и путь дипломатии'', N''Этот раздел знакомит с Нгуен Тхи Бинь через её дипломатическую деятельность и парижские переговоры. Изучая материалы, обратите внимание на роль диалога в поиске политического решения войны. Переговоры требуют подготовки, умения слушать и настойчивости в изложении позиции. Её история помогает задуматься о роли женщин в дипломатии и об усилиях, направленных на достижение мира.'', N'''', 0);
 END;
-IF NOT EXISTS(SELECT 1 FROM dbo.QrCodes WHERE QrToken=N''MUSEUM-MAIN-ENTRY'') INSERT dbo.QrCodes(PoiId,QrToken,ScanCount,IsActive) VALUES(NULL,N''MUSEUM-MAIN-ENTRY'',0,1);';
+IF NOT EXISTS(SELECT 1 FROM dbo.QrCode WHERE QrToken=N''MUSEUM-MAIN-ENTRY'') INSERT dbo.QrCode(PoiId,QrToken,ScanCount,IsActive) VALUES(NULL,N''MUSEUM-MAIN-ENTRY'',0,1);';
     END
     ELSE
         EXEC sys.sp_executesql N'
-            IF NOT EXISTS (SELECT 1 FROM dbo.QrCodes WHERE QrToken=N''MUSEUM-MAIN-ENTRY'')
-                INSERT dbo.QrCodes(PoiId,QrToken,ScanCount,IsActive)
+            IF NOT EXISTS (SELECT 1 FROM dbo.QrCode WHERE QrToken=N''MUSEUM-MAIN-ENTRY'')
+                INSERT dbo.QrCode(PoiId,QrToken,ScanCount,IsActive)
                 VALUES (NULL,N''MUSEUM-MAIN-ENTRY'',0,1);';
 
     IF @RefreshDemoNarratives = 1
@@ -392,6 +402,19 @@ WHERE NOT EXISTS (
     IF NOT EXISTS (SELECT 1 FROM dbo.SchemaVersions WHERE Name = N'005_AdminAccounts.sql')
         INSERT dbo.SchemaVersions (Name, Sha256)
         VALUES (N'005_AdminAccounts.sql', '6F8D63A2DE97A48CD880A9F18F8445F247010DEDC911C731A16BADD27EB0947E');
+
+    -- Tên tương thích cho các truy vấn của phiên bản ứng dụng hiện tại.
+    IF OBJECT_ID(N'dbo.QrCodes') IS NULL
+        EXEC sys.sp_executesql N'CREATE SYNONYM dbo.QrCodes FOR dbo.QrCode;';
+    ELSE IF NOT EXISTS (
+        SELECT 1 FROM sys.synonyms
+        WHERE object_id = OBJECT_ID(N'dbo.QrCodes', N'SN')
+          AND PARSENAME(base_object_name, 1) = N'QrCode'
+          AND PARSENAME(base_object_name, 2) = N'dbo'
+          AND PARSENAME(base_object_name, 3) IS NULL
+          AND PARSENAME(base_object_name, 4) IS NULL
+    )
+        THROW 51023, N'Tên tương thích dbo.QrCodes đang trỏ tới đối tượng khác.', 1;
 
     COMMIT TRANSACTION;
     PRINT N'Đã hoàn tất thiết lập AudioGuideDb. Xem dữ liệu bằng AudioGuideDB_DisplayTable.sql.';
