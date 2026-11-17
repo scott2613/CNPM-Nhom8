@@ -148,7 +148,7 @@ public sealed class FakePois:IPoiRepository {
  public Task<bool> DeleteAsync(int id,CancellationToken ct)=>Task.FromResult(id==1);
  public Task<bool?> ToggleAsync(int id,CancellationToken ct)=>Task.FromResult<bool?>(id==1?false:null);
  public Task<bool> GateEnabledAsync(string token,CancellationToken ct)=>Task.FromResult(token=="MUSEUM-MAIN-ENTRY");
- public Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct)=>Task.FromResult<PoiNarrativeDto?>(null);
+ public Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct,int? activePoiId=null)=>Task.FromResult<PoiNarrativeDto?>(null);
 }
 public sealed class FakeVisitors:IVisitorRepository {
  public List<DeviceDto> Devices { get; } = [];
