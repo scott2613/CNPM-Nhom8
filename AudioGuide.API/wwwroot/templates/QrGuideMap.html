@@ -1015,6 +1015,55 @@
                 height: 72px;
             }
         }
+        .gps-demo, .gps-live-status {
+            position: absolute;
+            z-index: 1100;
+            left: 12px;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            font-size: 13px;
+        }
+        .gps-demo {
+            top: max(12px, env(safe-area-inset-top));
+            max-width: min(19rem, calc(100% - 76px));
+        }
+        #gpsDemoPanel, .gps-live-status {
+            background: var(--glass-bg);
+            border: 1.5px solid var(--glass-border);
+            border-radius: 18px;
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            box-shadow: var(--glass-shadow);
+            padding: 10px;
+        }
+        #gpsDemoPanel {
+            margin-top: 8px;
+            max-height: calc(100dvh - 78px);
+            overflow: auto;
+        }
+        .gps-live-status {
+            bottom: max(42px, env(safe-area-inset-bottom));
+            max-width: min(19rem, calc(100% - 24px));
+            margin: 0;
+        }
+        .gps-demo-actions .glass-menu-trigger-btn { font-size: 12px; padding: 7px 10px; }
+        #gpsAutoBtn[hidden] { display: none; }
+        .gps-demo-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+        .gps-demo p { margin: 7px 0 0; }
+        .gps-demo-pin span {
+            display: block;
+            width: 24px;
+            height: 24px;
+            border: 2px solid white;
+            border-radius: 50%;
+            background: #2563eb;
+            color: white;
+            text-align: center;
+            line-height: 20px;
+            font-weight: bold;
+            box-shadow: 0 2px 7px rgba(0, 0, 0, 0.6);
+        }
+
     </style>
 </head>
 <body>
@@ -1069,6 +1118,23 @@
             </div>
         </div>
     </div>
+
+    <section class='gps-demo' id='gpsDemo' hidden aria-label='Mô phỏng vị trí khách'>
+        <button type='button' id='gpsDemoToggle' class='glass-menu-trigger-btn'
+                aria-expanded='false' aria-controls='gpsDemoPanel'
+                onclick='toggleGpsSimulation()'>Mô phỏng vị trí</button>
+        <div id='gpsDemoPanel' hidden>
+            <div class='gps-demo-actions'>
+                <button type='button' class='glass-menu-trigger-btn' id='gpsDemoInside'
+                        onclick='moveSimulationToZone(true)' disabled>Trong phạm vi</button>
+                <button type='button' class='glass-menu-trigger-btn' id='gpsDemoOutside'
+                        onclick='moveSimulationToZone(false)' disabled>Ngoài phạm vi</button>
+            </div>
+            <p>Bấm ghim điểm thuyết minh hoặc kéo ghim khách màu xanh.</p>
+            <p id='gpsDemoStatus' role='status'></p>
+        </div>
+    </section>
+    <p class='gps-live-status' id='gpsLiveStatus' role='status' hidden></p>
 
     <!-- Nút tai nghe thu gọn khi người dùng ẩn khung thuyết minh -->
     <button class='player-toggle-circle' id='playerToggleCircle' onclick='toggleMinimizePlayer()' title='Mở bảng thuyết minh'>
@@ -1182,12 +1248,14 @@
 
         // Trích xuất tham số ngôn ngữ từ URL hoặc fallback về biến template
         const urlParams = new URLSearchParams(window.location.search);
-        const isPreview = urlParams.get('preview') === 'true';
+        const openSimulationOnLoad = urlParams.get('simulation') === 'true';
+        const isPreview = openSimulationOnLoad || urlParams.get('preview') === 'true';
+        let isSimulation = false;
         const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         let playbackEventId=null, playbackRecorded=false, audioGeneration=0;
         let eventQueue = Promise.resolve();
         async function sendEvent(path,eventId) {
-          if(isPreview)return;
+          if(isPreview||isSimulation)return;
           const body = JSON.stringify({eventId, languageCode:selectedPoi?.languageCode||activeLangPrefix, preview:isPreview});
           const sent = eventQueue.then(async () => {
             const response = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body});
@@ -1202,7 +1270,7 @@
           return sent;
         }
         function recordPlayback(){
-          if(isPreview||playbackRecorded||!selectedPoi||!playbackEventId)return;
+          if(isPreview||isSimulation||playbackRecorded||!selectedPoi||!playbackEventId)return;
           playbackRecorded=true;
           const eventId = playbackEventId;
           sendEvent('/api/QrGuide/log-view/'+encodeURIComponent(selectedPoi.code),eventId)
@@ -1330,7 +1398,7 @@
         // Gửi nhịp tim định kỳ báo hiệu thiết bị đang trực tuyến lên máy chủ API
         let heartbeatPending = false;
         async function sendHeartbeat() {
-            if (isPreview || document.visibilityState === 'hidden' || heartbeatPending) return;
+            if (isPreview || isSimulation || document.visibilityState === 'hidden' || heartbeatPending) return;
             heartbeatPending = true;
 
             const payload = {
@@ -1518,8 +1586,9 @@
 
         // Chuyển sang xem tầng cụ thể (-1: Tất cả, 0: Trệt, 1: Tầng 1, 2: Tầng 2)
         function switchFloor(floor) {
+            const previousFloor = currentFloor;
             currentFloor = floor;
-            document.querySelectorAll('.floor-item-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.floor-item-btn:not(#gpsAutoBtn)').forEach(btn => btn.classList.remove('active'));
 
             let activeBtnId = 'fBtnAll';
             let badgeLabel = 'A';
@@ -1542,6 +1611,11 @@
             if (floorBadge) floorBadge.innerText = badgeLabel;
 
             renderMarkers();
+            if (previousFloor !== floor) locationFloorChanged();
+        }
+
+        function poisOnCurrentFloor() {
+            return currentFloor < 0 ? poisData : poisData.filter(poi => poi.floor === currentFloor);
         }
 
         // Vẽ các điểm ghim POI lên bản đồ theo tầng đang lọc
@@ -1549,9 +1623,8 @@
             mapMarkers.forEach(m => map.removeLayer(m));
             mapMarkers = [];
 
-            const displayedPois = (currentFloor === -1)
-                ? poisData
-                : poisData.filter(p => p.floor === currentFloor);
+            const displayedPois = poisOnCurrentFloor();
+            if (isSimulation) renderSimulationCircles();
 
             displayedPois.forEach(poi => {
                 const pinIcon = L.divIcon({
@@ -1585,7 +1658,8 @@
                 });
 
                 marker.on('click', () => {
-                    openAndPlayPoi(poi);
+                    if (isSimulation) focusSimulationPoi(poi);
+                    else openAndPlayPoi(poi);
                 });
 
                 mapMarkers.push(marker);
@@ -1650,8 +1724,9 @@
         }
 
         // Chọn và kích hoạt thuyết minh cho một POI
-        function openAndPlayPoi(poi) {
+        function openAndPlayPoi(poi, automatic = false) {
             if (!poi) return;
+            automaticPlaybackPoiId = automatic ? poi.id : null;
             selectedPoi = poi;
             showPoiPreview(poi);
 
@@ -1770,7 +1845,8 @@
         function onSelectPoiFromMenu(poiId) {
             const targetPoi = poisData.find(p => p.id === poiId);
             if (targetPoi) {
-                openAndPlayPoi(targetPoi);
+                if (isSimulation) focusSimulationPoi(targetPoi);
+                else openAndPlayPoi(targetPoi);
                 if (window.innerWidth <= 600) {
                     togglePoiMenu();
                 }
@@ -2024,8 +2100,9 @@
             const timeCur = document.getElementById('timeCurrent');
             if (seekSlider) seekSlider.value = 100;
             if (timeCur) timeCur.innerText = formatTime(estimatedTotalDuration);
+            const generation = audioGeneration;
             setTimeout(() => {
-                autoCloseOnEnd();
+                if (generation === audioGeneration) autoCloseOnEnd();
             }, 300);
         }
 
@@ -2049,6 +2126,7 @@
             if (!selectedPoi) return;
 
             if (!isSpeaking) {
+                automaticPlaybackPoiId = null;
                 startPlaybackAtSecond(currentPlaybackSec);
             } else if (isSpeaking && !isPaused) {
                 if ('speechSynthesis' in window) synth.pause();
@@ -2132,7 +2210,9 @@
         }
 
         // Dừng toàn bộ âm thanh
-        function stopVoice() { audioGeneration++;
+        function stopVoice() {
+            audioGeneration++;
+            automaticPlaybackPoiId = null;
             if ('speechSynthesis' in window) synth.cancel();
             if (activeAudioElement) {
                 activeAudioElement.pause();
@@ -2185,29 +2265,283 @@
 
         });
     
-        let geoWatch=null,geoBusy=false,lastGeoCall=0,lastAutoPoi=null,lastAutoTime=0;
-        function toggleAutoGps(){
-          const button=document.getElementById('gpsAutoBtn');
-          if(geoWatch!==null){navigator.geolocation.clearWatch(geoWatch);geoWatch=null;button.classList.remove('active');return;}
-          if(isPreview){alert('GPS tự động không bật trong chế độ nghe thử.');return;}
-          if(!navigator.geolocation){alert('Thiết bị không hỗ trợ GPS.');return;}
-          if(currentFloor<0){alert('Hãy chọn tầng G, 1 hoặc 2 trước khi bật GPS.');return;}
-          // The user opted in; the browser may still require a tap on the player to permit audio.
-          button.classList.add('active');
-          geoWatch=navigator.geolocation.watchPosition(async position=>{
-           if(geoBusy||Date.now()-lastGeoCall<5000||document.hidden)return;
-           if(position.coords.accuracy>30)return;
-           geoBusy=true;lastGeoCall=Date.now();
-           try{
-            const response=await fetch('/api/GeoGuide/locate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracyMeters:position.coords.accuracy,sampledAt:new Date(position.timestamp).toISOString(),floor:currentFloor,languageCode:resolvedLang})});
-            if(!response.ok)return;const data=await response.json();
-            if(!data.poiId||isSpeaking&&!isPaused)return;
-            if(lastAutoPoi===data.poiId&&Date.now()-lastAutoTime<120000)return;
-            const poi=poisData.find(p=>p.id===data.poiId);if(poi){lastAutoPoi=poi.id;lastAutoTime=Date.now();openAndPlayPoi(poi);}
-           }catch{}finally{geoBusy=false;}
-          },()=>{button.classList.remove('active');if(geoWatch!==null)navigator.geolocation.clearWatch(geoWatch);geoWatch=null;alert('Chưa lấy được vị trí. Hãy cấp quyền GPS hoặc chọn POI trên bản đồ.');},{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+        let geoWatch = null;
+        let latestGpsPosition = null;
+        let lastGpsCheck = 0;
+        let pendingGpsCheck = null;
+        let locationRequest = null;
+        let visitedPoiId = null;
+        let automaticPlaybackPoiId = null;
+        let simulationPoi = null;
+        let simulationFloor = 0;
+        let simulationMarker = null;
+        let simulationCircles = [];
+
+        function setPositionStatus(message) {
+            const status = document.getElementById(isSimulation ? 'gpsDemoStatus' : 'gpsLiveStatus');
+            status.textContent = message;
+            status.hidden = !message;
         }
-        window.addEventListener('pagehide',()=>{if(geoWatch!==null)navigator.geolocation.clearWatch(geoWatch);});
+
+        function stopAutomaticPlayback() {
+            if (automaticPlaybackPoiId !== null && selectedPoi?.id === automaticPlaybackPoiId) {
+                closePlayerBox();
+            }
+            automaticPlaybackPoiId = null;
+        }
+
+        function resetLocationZone() {
+            locationRequest?.abort();
+            locationRequest = null;
+            visitedPoiId = null;
+            stopAutomaticPlayback();
+        }
+
+        function locationFloorChanged() {
+            if (simulationMarker) {
+                if (currentFloor >= 0 && currentFloor === simulationFloor) return;
+                if (currentFloor >= 0) simulationFloor = currentFloor;
+                resetLocationZone();
+                setSimulationPoi(null);
+                checkSimulationPosition();
+                return;
+            }
+            if (geoWatch === null) return;
+            resetLocationZone();
+            if (currentFloor < 0) {
+                setPositionStatus('Chọn một tầng cụ thể để định vị.');
+                return;
+            }
+            if (latestGpsPosition && Date.now() - latestGpsPosition.timestamp <= 30000) {
+                checkGpsPosition(latestGpsPosition);
+            } else {
+                setPositionStatus('Đang chờ vị trí GPS trên tầng đã chọn.');
+            }
+        }
+
+        async function checkLocation(latitude, longitude, accuracyMeters, timestamp, targetPoi = null) {
+            locationRequest?.abort();
+            const request = new AbortController();
+            locationRequest = request;
+            const floor = isSimulation ? simulationFloor : currentFloor;
+            const trackedPoiId = targetPoi?.id ?? visitedPoiId;
+            setPositionStatus(isSimulation ? 'Đang kiểm tra vị trí mô phỏng…' : 'Đang kiểm tra vị trí GPS…');
+            try {
+                const response = await fetch('/api/GeoGuide/locate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: request.signal,
+                    body: JSON.stringify({
+                        latitude, longitude, accuracyMeters, floor,
+                        sampledAt: new Date(timestamp).toISOString(),
+                        languageCode: resolvedLang,
+                        activePoiId: trackedPoiId
+                    })
+                });
+                const data = await response.json();
+                if (request.signal.aborted) return;
+                if (!response.ok || data.message) {
+                    setPositionStatus(data.message || 'Chưa xác định được vị trí. Hãy thử lại.');
+                    return;
+                }
+
+                const candidate = trackedPoiId === null ? data : data.poi;
+                const poi = targetPoi
+                    ? (data.activePoiInRange ? targetPoi : null)
+                    : poisData.find(item => item.id === candidate?.poiId);
+
+                // Vị trí hợp lệ mới có thể xác nhận khách đã rời vùng cũ.
+                if (visitedPoiId !== null && poi?.id !== visitedPoiId) {
+                    visitedPoiId = null;
+                    stopAutomaticPlayback();
+                }
+
+                if (!poi) {
+                    setPositionStatus('Đang ngoài vùng thuyết minh.');
+                    return;
+                }
+
+                if (isSimulation) setSimulationPoi(poi);
+                const distance = candidate?.distanceMeters;
+                setPositionStatus(Number.isFinite(distance)
+                    ? `Trong vùng · ${distance} m · ${poi.title}`
+                    : `Trong vùng · ${poi.title}`);
+                if (visitedPoiId === poi.id || isSpeaking || isPaused) return;
+                visitedPoiId = poi.id;
+                openAndPlayPoi(poi, true);
+            } catch {
+                if (!request.signal.aborted) setPositionStatus('Chưa xác định được vị trí. Hãy thử lại.');
+            } finally {
+                if (locationRequest === request) locationRequest = null;
+            }
+        }
+
+        function checkGpsPosition(position) {
+            if (currentFloor < 0 || document.hidden) return;
+            clearTimeout(pendingGpsCheck);
+            pendingGpsCheck = null;
+            lastGpsCheck = Date.now();
+            const { latitude, longitude, accuracy } = position.coords;
+            void checkLocation(latitude, longitude, accuracy, position.timestamp);
+        }
+
+        function queueGpsPosition(position) {
+            if (geoWatch === null) return;
+            latestGpsPosition = position;
+            if (document.hidden || currentFloor < 0) return;
+            const wait = 5000 - (Date.now() - lastGpsCheck);
+            if (wait <= 0) {
+                checkGpsPosition(position);
+            } else if (pendingGpsCheck === null) {
+                pendingGpsCheck = setTimeout(() => {
+                    pendingGpsCheck = null;
+                    if (geoWatch !== null && latestGpsPosition) checkGpsPosition(latestGpsPosition);
+                }, wait);
+            }
+        }
+
+        function toggleAutoGps() {
+            if (geoWatch !== null) {
+                stopGpsWatch();
+                setPositionStatus('');
+                return;
+            }
+            if (isPreview || isSimulation) { alert('GPS tự động chỉ dùng trong chế độ tham quan.'); return; }
+            if (!navigator.geolocation) { alert('Thiết bị không hỗ trợ GPS.'); return; }
+            if (currentFloor < 0) { alert('Hãy chọn tầng G, 1 hoặc 2 trước khi bật GPS.'); return; }
+            document.getElementById('gpsAutoBtn').classList.add('active');
+            setPositionStatus('Đang chờ vị trí GPS…');
+            geoWatch = navigator.geolocation.watchPosition(queueGpsPosition, () => {
+                if (geoWatch === null) return;
+                // Giữ trạng thái bài đang phát khi chưa có vị trí mới hợp lệ.
+                setPositionStatus('Chưa lấy được GPS. Hãy kiểm tra quyền vị trí hoặc chọn POI trên bản đồ.');
+            }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+        }
+
+        function stopGpsWatch() {
+            if (geoWatch !== null) navigator.geolocation.clearWatch(geoWatch);
+            geoWatch = null;
+            latestGpsPosition = null;
+            lastGpsCheck = 0;
+            clearTimeout(pendingGpsCheck);
+            pendingGpsCheck = null;
+            document.getElementById('gpsAutoBtn').classList.remove('active');
+            resetLocationZone();
+        }
+
+        function toggleGpsSimulation() {
+            setGpsSimulation(!isSimulation);
+        }
+
+        function setGpsSimulation(enabled) {
+            const panel = document.getElementById('gpsDemoPanel');
+            if (enabled) {
+                setPositionStatus('');
+                isSimulation = true;
+                stopGpsWatch();
+                closePlayerBox();
+                simulationFloor = currentFloor >= 0 ? currentFloor : (poisData[0]?.floor ?? 0);
+                const center = map.latLngToContainerPoint(map.getCenter());
+                const start = map.containerPointToLatLng(L.point(center.x, center.y + 42));
+                simulationMarker = L.marker(start, {
+                    draggable: true, zIndexOffset: 1000, title: 'Vị trí khách mô phỏng',
+                    icon: L.divIcon({ className: 'gps-demo-pin', html: '<span>●</span>', iconSize: [24, 24], iconAnchor: [12, 12] })
+                }).addTo(map);
+                simulationMarker.on('dragstart', () => locationRequest?.abort());
+                simulationMarker.on('dragend', () => checkSimulationPosition());
+                setPositionStatus('Kéo ghim khách vào một vòng bán kính.');
+            } else {
+                resetLocationZone();
+                simulationMarker?.remove();
+                simulationMarker = null;
+                setSimulationPoi(null);
+                closePlayerBox();
+                isSimulation = false;
+            }
+            renderSimulationCircles();
+            panel.hidden = !enabled;
+            document.getElementById('gpsDemoToggle').setAttribute('aria-expanded', String(enabled));
+            document.getElementById('gpsAutoBtn').hidden = enabled || isPreview;
+        }
+
+        function renderSimulationCircles() {
+            simulationCircles.forEach(circle => circle.remove());
+            simulationCircles = isSimulation ? poisOnCurrentFloor().map(poi =>
+                L.circle([poi.lat, poi.lng], {
+                    radius: poi.triggerRadiusMeters, color: '#38bdf8', fillOpacity: 0.25, interactive: false
+                }).addTo(map)
+            ) : [];
+        }
+
+        function setSimulationPoi(poi) {
+            if (simulationPoi === poi) return;
+            simulationPoi = poi;
+            const insideButton = document.getElementById('gpsDemoInside');
+            const outsideButton = document.getElementById('gpsDemoOutside');
+            const radiusLabel = poi ? ` ${poi.triggerRadiusMeters.toLocaleString('vi-VN', { maximumFractionDigits: 20 })} m` : '';
+            insideButton.textContent = 'Trong phạm vi' + radiusLabel;
+            outsideButton.textContent = 'Ngoài phạm vi' + radiusLabel;
+            insideButton.disabled = outsideButton.disabled = !poi;
+        }
+
+        function focusSimulationPoi(poi) {
+            simulationFloor = poi.floor;
+            if (currentFloor >= 0 && currentFloor !== poi.floor) switchFloor(poi.floor);
+            setSimulationPoi(poi);
+            const center = [poi.lat, poi.lng];
+            simulationMarker.setLatLng(center);
+            map.setView(center, 21);
+            checkSimulationPosition(poi);
+        }
+
+        function checkSimulationPosition(targetPoi = null) {
+            if (!simulationMarker) return;
+            const { lat, lng } = simulationMarker.getLatLng();
+            if (!targetPoi && currentFloor < 0) {
+                // Chế độ tất cả tầng chọn tầng từ vòng chứa ghim. API vẫn xác nhận khoảng cách.
+                let nearestPoi = null;
+                let nearestDistance = Infinity;
+                for (const poi of poisData) {
+                    const distance = map.distance([lat, lng], [poi.lat, poi.lng]);
+                    if (distance > poi.triggerRadiusMeters) continue;
+                    if (poi.id === visitedPoiId) {
+                        nearestPoi = poi;
+                        break;
+                    }
+                    if (distance < nearestDistance) {
+                        nearestPoi = poi;
+                        nearestDistance = distance;
+                    }
+                }
+                if (nearestPoi) simulationFloor = nearestPoi.floor;
+            }
+            void checkLocation(lat, lng, 1, Date.now(), targetPoi);
+        }
+
+        function moveSimulationToZone(inside) {
+            if (!simulationPoi || !simulationMarker) return;
+            const meters = simulationPoi.triggerRadiusMeters * (inside ? 0.6 : 1.6);
+            // Tạo độ lệch theo hướng Bắc dùng bán kính cong kinh tuyến WGS84 cục bộ.
+            const radians = simulationPoi.lat * Math.PI / 180;
+            const eccentricitySquared = 0.00669437999014;
+            const meridianRadius = 6378137 * (1 - eccentricitySquared)
+                / Math.pow(1 - eccentricitySquared * Math.sin(radians) ** 2, 1.5);
+            const latitude = simulationPoi.lat + (meters / meridianRadius) * 180 / Math.PI;
+            simulationMarker.setLatLng([latitude, simulationPoi.lng]);
+            checkSimulationPosition(simulationPoi);
+        }
+
+        const demo = document.getElementById('gpsDemo');
+        L.DomEvent.disableClickPropagation(demo);
+        L.DomEvent.disableScrollPropagation(demo);
+        demo.hidden = false;
+        document.getElementById('gpsAutoBtn').hidden = isPreview;
+        if (openSimulationOnLoad) setGpsSimulation(true);
+
+        window.addEventListener('pagehide', () => {
+            stopGpsWatch();
+            if (isSimulation) setGpsSimulation(false);
+        });
 </script>
 </body>
 </html>

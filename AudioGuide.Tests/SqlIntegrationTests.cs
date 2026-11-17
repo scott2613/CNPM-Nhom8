@@ -78,6 +78,40 @@ public class SqlIntegrationTests
         } // Kết thúc phần dọn nhật ký.
     } // Kết thúc bài kiểm thử thống kê.
 
+
+    [SqlFact]
+    public async Task GpsKeepsActivePoiInOverlapAndRejectsOutsideOrWrongFloor()
+    {
+        var connection = Environment.GetEnvironmentVariable("AUDIOGUIDE_TEST_SQL")!;
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer(connection, sql => sql.UseNetTopologySuite()).Options;
+        await using var db = new AppDbContext(options);
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        // Use a location away from the museum seed data and place a second POI 3 m north.
+        static NetTopologySuite.Geometries.Point At(double northMeters) =>
+            new(42, 12 + northMeters / 110622) { SRID = 4326 };
+        static Poi CreatePoi(NetTopologySuite.Geometries.Point location) => new()
+        {
+            Code = "GPS-" + Guid.NewGuid().ToString("N"),
+            Location = location,
+            Floor = 1,
+            TriggerRadiusMeters = 5,
+            Translations = [new() { LanguageCode = "vi", Title = "GPS demo" }]
+        };
+
+        var active = CreatePoi(At(0));
+        var closer = CreatePoi(At(3));
+        db.Pois.AddRange(active, closer);
+        await db.SaveChangesAsync();
+        var repository = new PoiRepository(db);
+
+        Assert.Equal(closer.Id, (await repository.NearestAsync(At(3), 1, "vi", default))?.PoiId);
+        Assert.Equal(active.Id, (await repository.NearestAsync(At(3), 1, "vi", default, active.Id))?.PoiId);
+        Assert.Null(await repository.NearestAsync(At(-8), 1, "vi", default, active.Id));
+        Assert.Null(await repository.NearestAsync(At(0), 0, "vi", default, active.Id));
+    }
+
     // Dùng cấu hình SQL Server riêng cho bài test chống đếm trùng và ghi đồng thời.
     [SqlFact]
     // Kiểm tra gửi lại cùng EventId và nhiều lượt ghi đồng thời.

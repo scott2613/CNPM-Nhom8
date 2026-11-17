@@ -12,6 +12,11 @@ public sealed class GeoGuideController(IAudioGuideService guide,IVisitorService 
   if(!double.IsFinite(request.AccuracyMeters)||request.AccuracyMeters>30)return Ok(new{poi=(object?)null,message="Độ chính xác GPS chưa đủ. Hãy chọn POI trên bản đồ."});
   request.LanguageCode??=Request.Headers.AcceptLanguage.ToString();
   var result=await guide.ResolveGpsLocationAsync(request,HttpContext.RequestAborted);
+  if (request.ActivePoiId is int activePoiId)
+  {
+   return Ok(new { poi = result, activePoiInRange = result?.PoiId == activePoiId });
+  }
+
   return result==null?Ok(new{poi=(object?)null}):Ok(result);
  }
 }

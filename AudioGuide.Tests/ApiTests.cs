@@ -119,6 +119,25 @@ public class ApiTests:IClassFixture<ApiFactory> {
  [Fact]public async Task SpoofedKeyRejected(){using var request=new HttpRequestMessage(HttpMethod.Get,"/api/devices");request.Headers.Add("X-Admin-Key","wrong");Assert.Equal(HttpStatusCode.Unauthorized,(await client.SendAsync(request)).StatusCode);}
  [Fact]public async Task UnknownGateReturns404()=>Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/api/QrGuide/scan/museum-fake")).StatusCode);
  [Fact]public async Task GateReturnsPreservedMap(){var response=await client.GetAsync("/api/QrGuide/scan/MUSEUM-MAIN-ENTRY?preview=true");Assert.Equal(HttpStatusCode.OK,response.StatusCode);Assert.Contains("glassPlayerBox",await response.Content.ReadAsStringAsync());}
+
+ [Fact]
+ public async Task GpsTrackingDistinguishesOutsideFromInaccuratePosition()
+ {
+  var sample = DateTimeOffset.UtcNow;
+  var outside = await client.PostAsJsonAsync("/api/GeoGuide/locate",
+   new { latitude = 10.77, longitude = 106.69, floor = 1, accuracyMeters = 1, sampledAt = sample, activePoiId = 1 });
+  outside.EnsureSuccessStatusCode();
+  var outsideResult = await outside.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+  Assert.False(outsideResult.GetProperty("activePoiInRange").GetBoolean());
+
+  var inaccurate = await client.PostAsJsonAsync("/api/GeoGuide/locate",
+   new { latitude = 10.77, longitude = 106.69, floor = 1, accuracyMeters = 31, sampledAt = sample, activePoiId = 1 });
+  inaccurate.EnsureSuccessStatusCode();
+  var inaccurateResult = await inaccurate.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+  Assert.True(inaccurateResult.TryGetProperty("message", out _));
+  Assert.False(inaccurateResult.TryGetProperty("activePoiInRange", out _));
+ }
+
  [Fact]public async Task NoPerPoiQr()=>Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/api/QrGuide/generate/POI-1")).StatusCode);
  [Fact]public async Task ReadinessWorks()=>Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/health/ready")).StatusCode);
  [Fact]public async Task MissingEventIdReturns400()=>Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync("/api/QrGuide/entry",new{eventId=Guid.Empty})).StatusCode);

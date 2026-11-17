@@ -1616,6 +1616,14 @@
 
                     <div class="request-actions">
                         <button class="btn btn-small"
+                                id="simulateLocationButton"
+                                type="button"
+                                onclick="executeRequest(true)">
+                            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                            Mô phỏng vị trí
+                        </button>
+
+                        <button class="btn btn-small"
                                 type="button"
                                 onclick="resetParameters()">
                             <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
@@ -2004,6 +2012,7 @@
 
             $("poiParameters").hidden = endpoint === "health";
             $("scanParameters").hidden = endpoint !== "scan";
+            $("simulateLocationButton").hidden = endpoint !== "scan";
             $("healthParameters").hidden = endpoint !== "health";
 
             $("parameterName").textContent =
@@ -2038,13 +2047,14 @@
             onParametersChange();
         }
 
-        function buildScanUrl(preview = $("previewCheck").checked) {
+        function buildScanUrl(preview = $("previewCheck").checked, simulation = false) {
             const token = encodeURIComponent($("poiSelect").value);
 
             const query = new URLSearchParams({
                 lang: state.language,
                 preview: String(preview)
             });
+            if (simulation) query.set("simulation", "true");
 
             return state.host + CONFIG.paths.scan + token + "?" + query;
         }
@@ -2446,11 +2456,13 @@
             setBadge("Chưa thực thi");
         }
 
-        async function executeRequest() {
+        async function executeRequest(simulation = false) {
             if (state.busy) return;
 
             const endpoint = state.endpoint;
-            const url = buildRequestUrl();
+            const url = simulation && endpoint === "scan"
+                ? buildScanUrl(true, true)
+                : buildRequestUrl();
             const requestId = ++state.requestId;
 
             state.controller?.abort();
