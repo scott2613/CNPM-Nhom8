@@ -26,9 +26,23 @@ public sealed class PoiRepository(AppDbContext db) : IPoiRepository {
   poi.IsActive=!poi.IsActive;await db.SaveChangesAsync(ct);return poi.IsActive;
  }
  public Task<bool> GateEnabledAsync(string token,CancellationToken ct)=>db.QrCodes.AsNoTracking().AnyAsync(q=>q.QrToken==token&&q.QrToken=="MUSEUM-MAIN-ENTRY"&&q.PoiId==null&&q.IsActive,ct);
- public async Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct) {
-  var result=await db.Pois.AsNoTracking().Where(p=>p.IsActive&&p.Floor==floor&&p.Location.Distance(location)<=p.TriggerRadiusMeters&&p.Translations.Any(t=>t.LanguageCode==language||t.LanguageCode=="vi"))
-   .OrderBy(p=>p.Location.Distance(location)).ThenBy(p=>p.Id).Select(p=>new {p.Id,p.Code,Distance=p.Location.Distance(location),Translation=p.Translations.Where(t=>t.LanguageCode==language||t.LanguageCode=="vi").OrderByDescending(t=>t.LanguageCode==language).First()}).FirstOrDefaultAsync(ct);
+ public async Task<PoiNarrativeDto?> NearestAsync(Point location, int floor, string language,
+  CancellationToken ct, int? activePoiId = null) {
+  var candidates = db.Pois.AsNoTracking()
+   .Where(p => p.IsActive && p.Floor == floor && p.Location.Distance(location) <= p.TriggerRadiusMeters
+    && p.Translations.Any(t => t.LanguageCode == language || t.LanguageCode == "vi"));
+
+  // Keep the current POI while the visitor remains inside its zone, even if another POI is closer.
+  var ordered = activePoiId is int id
+   ? candidates.OrderByDescending(p => p.Id == id).ThenBy(p => p.Location.Distance(location))
+   : candidates.OrderBy(p => p.Location.Distance(location));
+
+  var result = await ordered.ThenBy(p => p.Id).Select(p => new
+  {
+   p.Id, p.Code, Distance = p.Location.Distance(location),
+   Translation = p.Translations.Where(t => t.LanguageCode == language || t.LanguageCode == "vi")
+    .OrderByDescending(t => t.LanguageCode == language).First()
+  }).FirstOrDefaultAsync(ct);
   if(result==null)return null;
   return new(){PoiId=result.Id,Code=result.Code,Title=result.Translation.Title,Description=result.Translation.Description,AudioUrl="",DurationSeconds=0,LanguageCode=result.Translation.LanguageCode,DistanceMeters=Math.Round(result.Distance,2)};
  }

@@ -12,5 +12,5 @@ public interface IPoiRepository {
  Task<bool> DeleteAsync(int id,CancellationToken ct);
  Task<bool?> ToggleAsync(int id,CancellationToken ct);
  Task<bool> GateEnabledAsync(string token,CancellationToken ct);
- Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct);
+ Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct,int? activePoiId = null);
 }

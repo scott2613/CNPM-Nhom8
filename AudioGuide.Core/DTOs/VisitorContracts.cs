@@ -30,5 +30,8 @@ public sealed record PoiInteractionRow(string Code, string Title, long ViewCount
 public sealed record PoiInteractionReport(DateTime FromUtc, DateTime ToUtc, IReadOnlyList<PoiInteractionRow> Locations,
     DateTime PreviousFromUtc, DateTime PreviousToUtc);
 public sealed record SavePoiResult(bool Found);
-public sealed record PoiMapItem(int Id,string Code,int Floor,double Lat,double Lng,string Title,string Desc,string? ImageUrl,string LanguageCode);
+public sealed record PoiMapItem(int Id,string Code,int Floor,double Lat,double Lng,string Title,string Desc,string? ImageUrl,string LanguageCode)
+{
+    public double TriggerRadiusMeters { get; init; } = 5;
+}
 public sealed class DomainException(int status,string message) : Exception(message) { public int Status {get;}=status; }

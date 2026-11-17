@@ -10,3 +10,15 @@ D:\AudioGuideSolution_CapNhatTaiKhoanAdmin\AudioGuideSolution\AudioGuide.Core\ob
 D:\AudioGuideSolution_CapNhatTaiKhoanAdmin\AudioGuideSolution\AudioGuide.Core\obj\Debug\net9.0\refint\AudioGuide.Core.dll
 D:\AudioGuideSolution_CapNhatTaiKhoanAdmin\AudioGuideSolution\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.pdb
 D:\AudioGuideSolution_CapNhatTaiKhoanAdmin\AudioGuideSolution\AudioGuide.Core\obj\Debug\net9.0\ref\AudioGuide.Core.dll
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\bin\Debug\net9.0\AudioGuide.Core.deps.json
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\bin\Debug\net9.0\AudioGuide.Core.dll
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\bin\Debug\net9.0\AudioGuide.Core.pdb
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.csproj.AssemblyReference.cache
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.AssemblyInfoInputs.cache
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.AssemblyInfo.cs
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.csproj.CoreCompileInputs.cache
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.dll
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\refint\AudioGuide.Core.dll
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\AudioGuide.Core.pdb
+D:\LCB\LCB_CNPM_V3\AudioGuide\AudioGuide.Core\obj\Debug\net9.0\ref\AudioGuide.Core.dll
