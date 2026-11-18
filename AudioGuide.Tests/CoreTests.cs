@@ -139,6 +139,8 @@ public sealed class FailingTranslation:ITranslationService {
 public sealed class FakePois:IPoiRepository {
  public Poi? Saved;public Poi Item=new(){Id=1,RowVersion=[1],Code="POI-1",Location=new Point(106,10){SRID=4326},Translations=[new(){LanguageCode="vi",Title="POI một"}]};
  public List<Poi> AdditionalPois { get; init; } = [];
+ public Dictionary<int,long> ViewCounts { get; init; } = [];
+ public Task<Dictionary<int,long>> ViewCountsAsync(CancellationToken ct)=>Task.FromResult(ViewCounts);
  public Task<int> CountAsync(CancellationToken ct)=>Task.FromResult(1);
  public Task<List<Poi>> ListAsync(CancellationToken ct)=>Task.FromResult<List<Poi>>([Item, .. AdditionalPois]);
  public Task<Poi?> FindAsync(int id,CancellationToken ct)=>Task.FromResult(id==1?Item:null);
@@ -179,3 +181,4 @@ public sealed class FakeVisitors:IVisitorRepository {
   return Task.FromResult(PoiWindows.Count == 1 ? PoiCounts : PreviousPoiCounts);
  }
 }
+

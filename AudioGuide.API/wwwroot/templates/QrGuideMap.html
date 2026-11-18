@@ -1070,6 +1070,15 @@
 
     <!-- Vùng vẽ bản đồ tương tác -->
     <div id='map'></div>
+    <div role='note' aria-label='Chú giải lượt truy cập POI'
+         style='position:absolute;bottom:30px;left:12px;z-index:1000;background:rgba(15,23,42,.92);color:white;padding:10px 12px;border-radius:10px;font-size:12px;max-width:260px;pointer-events:none;'>
+        <strong>Lượt truy cập POI</strong><br>
+        <span style='color:#4ade80'>●</span> Xanh lá: nhiều nhất ·
+        <span style='color:#f87171'>●</span> Đỏ: ít nhất<br>
+        <span style='color:#60a5fa'>●</span> Xanh dương: còn lại hoặc bằng nhau<br>
+        Toàn lịch sử · các POI đang hoạt động<br>
+        Số liệu cập nhật khi tải lại bản đồ
+    </div>
 
     <!-- Cụm công cụ điều khiển góc trên bên phải -->
     <div class='right-control-cluster'>
@@ -1627,9 +1636,13 @@
             if (isSimulation) renderSimulationCircles();
 
             displayedPois.forEach(poi => {
+                const visitColor = poi.visitRank === 'most' ? '#16a34a'
+                    : poi.visitRank === 'least' ? '#dc2626' : '#2563eb';
+                const visitLabel = poi.visitRank === 'most' ? 'Nhiều lượt nhất'
+                    : poi.visitRank === 'least' ? 'Ít lượt nhất' : 'Lượt truy cập';
                 const pinIcon = L.divIcon({
                     className: 'custom-poi-pin',
-                    html: `<div style='background:#dc2626; color:white; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.7); border:2.5px solid #ffffff; font-size:16px; font-weight:800; cursor:pointer; transition:transform 0.15s ease;'>📍</div>`,
+                    html: `<div style='background:${visitColor}; color:white; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px ${visitColor}99; border:2.5px solid #ffffff; font-size:16px; font-weight:800; cursor:pointer; transition:transform 0.15s ease;'>📍</div>`,
                     iconSize: [34, 34],
                     iconAnchor: [17, 17],
                     popupAnchor: [0, -18]
@@ -1647,6 +1660,7 @@
                         <div>
                             <div style='font-weight:800; font-size:13px; color:#ffffff;'>${escapeHtml(poi.title)}</div>
                             <div style='font-size:10.5px; color:#e2e8f0; margin-top:3px;'>🏛️ ${escapeHtml(floorText)}</div>
+                            <div style='font-size:11px; color:#ffffff; margin-top:3px;'>${visitLabel}: ${Number(poi.viewCount || 0).toLocaleString('vi-VN')} lượt</div>
                         </div>
                     </div>
                 `;
@@ -2545,3 +2559,4 @@
 </script>
 </body>
 </html>
+

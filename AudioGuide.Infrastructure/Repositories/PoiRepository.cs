@@ -11,6 +11,11 @@ public sealed class PoiRepository(AppDbContext db) : IPoiRepository {
  public Task<Poi?> FindAsync(int id,CancellationToken ct)=>db.Pois.Include(p=>p.Translations).FirstOrDefaultAsync(p=>p.Id==id,ct);
  public Task<Poi?> FindCodeAsync(string code,CancellationToken ct)=>db.Pois.AsNoTracking().Include(p=>p.Translations).FirstOrDefaultAsync(p=>p.Code==code,ct);
  public Task<Dictionary<int,int>> PlayCountsAsync(CancellationToken ct)=>db.QrScanLogs.Where(e=>e.EventType=="PlayStarted"&&e.IsUtc&&e.PoiId!=null).GroupBy(e=>e.PoiId!.Value).ToDictionaryAsync(g=>g.Key,g=>g.Count(),ct);
+ public Task<Dictionary<int,long>> ViewCountsAsync(CancellationToken ct)=>
+  db.QrScanLogs.AsNoTracking()
+   .Where(e=>e.EventType=="PoiViewed"&&e.IsUtc&&e.PoiId!=null)
+   .GroupBy(e=>e.PoiId!.Value)
+   .ToDictionaryAsync(g=>g.Key,g=>g.LongCount(),ct);
  public async Task SaveAsync(Poi poi,CancellationToken ct) {
   if(poi.Id==0)db.Pois.Add(poi);
   else db.Entry(poi).Property(p => p.Code).IsModified = true;
@@ -47,3 +52,4 @@ public sealed class PoiRepository(AppDbContext db) : IPoiRepository {
   return new(){PoiId=result.Id,Code=result.Code,Title=result.Translation.Title,Description=result.Translation.Description,AudioUrl="",DurationSeconds=0,LanguageCode=result.Translation.LanguageCode,DistanceMeters=Math.Round(result.Distance,2)};
  }
 }
+

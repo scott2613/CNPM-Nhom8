@@ -33,5 +33,8 @@ public sealed record SavePoiResult(bool Found);
 public sealed record PoiMapItem(int Id,string Code,int Floor,double Lat,double Lng,string Title,string Desc,string? ImageUrl,string LanguageCode)
 {
     public double TriggerRadiusMeters { get; init; } = 5;
+    public long ViewCount { get; init; }
+    public string VisitRank { get; init; } = "normal";
 }
 public sealed class DomainException(int status,string message) : Exception(message) { public int Status {get;}=status; }
+

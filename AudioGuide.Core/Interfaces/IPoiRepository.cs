@@ -8,9 +8,11 @@ public interface IPoiRepository {
  Task<Poi?> FindAsync(int id,CancellationToken ct);
  Task<Poi?> FindCodeAsync(string code,CancellationToken ct);
  Task<Dictionary<int,int>> PlayCountsAsync(CancellationToken ct);
+ Task<Dictionary<int,long>> ViewCountsAsync(CancellationToken ct);
  Task SaveAsync(Poi poi,CancellationToken ct);
  Task<bool> DeleteAsync(int id,CancellationToken ct);
  Task<bool?> ToggleAsync(int id,CancellationToken ct);
  Task<bool> GateEnabledAsync(string token,CancellationToken ct);
  Task<PoiNarrativeDto?> NearestAsync(Point location,int floor,string language,CancellationToken ct,int? activePoiId = null);
 }
+

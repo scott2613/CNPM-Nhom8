@@ -7,11 +7,17 @@ public sealed class AudioGuideService(IPoiRepository repository) : IAudioGuideSe
  public async Task<List<PoiMapItem>> MapAsync(string token,string? language,CancellationToken ct=default) {
   if(!await repository.GateEnabledAsync(token,ct))throw new DomainException(404,"QR cổng không hợp lệ hoặc đã ngừng hoạt động.");
   var lang=LanguagePolicy.Normalize(language);
-  return (await repository.ListAsync(ct)).Where(p=>p.IsActive).OrderBy(p=>p.Floor).ThenBy(p=>p.Id).Select(p=>{
+  var pois=(await repository.ListAsync(ct)).Where(p=>p.IsActive).OrderBy(p=>p.Floor).ThenBy(p=>p.Id).ToList();
+  var counts=await repository.ViewCountsAsync(ct);
+  var min=pois.Count==0?0:pois.Min(p=>counts.GetValueOrDefault(p.Id));
+  var max=pois.Count==0?0:pois.Max(p=>counts.GetValueOrDefault(p.Id));
+  return pois.Select(p=>{
    var t=p.Translations.FirstOrDefault(t=>t.LanguageCode==lang)??p.Translations.FirstOrDefault(t=>t.LanguageCode=="vi");
    return new PoiMapItem(p.Id,p.Code,p.Floor,p.Location.Y,p.Location.X,t?.Title??p.Code,t?.Description??"",p.ImageUrl,t?.LanguageCode??"vi")
    {
-    TriggerRadiusMeters = p.TriggerRadiusMeters
+    TriggerRadiusMeters = p.TriggerRadiusMeters,
+    ViewCount = counts.GetValueOrDefault(p.Id),
+    VisitRank = min==max?"normal":counts.GetValueOrDefault(p.Id)==max?"most":counts.GetValueOrDefault(p.Id)==min?"least":"normal"
    };
   }).ToList();
  }
@@ -23,3 +29,4 @@ public sealed class AudioGuideService(IPoiRepository repository) : IAudioGuideSe
    cancellationToken, request.ActivePoiId);
  }
 }
+
