@@ -15,7 +15,8 @@ public sealed class PoiRepository(AppDbContext db) : IPoiRepository {
   db.QrScanLogs.AsNoTracking()
    .Where(e=>e.EventType=="PoiViewed"&&e.IsUtc&&e.PoiId!=null)
    .GroupBy(e=>e.PoiId!.Value)
-   .ToDictionaryAsync(g=>g.Key,g=>g.LongCount(),ct);
+   .Select(g=>new {PoiId=g.Key,ViewCount=g.LongCount()})
+   .ToDictionaryAsync(row=>row.PoiId,row=>row.ViewCount,ct);
  public async Task SaveAsync(Poi poi,CancellationToken ct) {
   if(poi.Id==0)db.Pois.Add(poi);
   else db.Entry(poi).Property(p => p.Code).IsModified = true;
