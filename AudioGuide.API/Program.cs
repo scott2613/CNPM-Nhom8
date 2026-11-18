@@ -1,3 +1,4 @@
+using AudioGuide.API.Services;
 using AudioGuide.LocalDevelopment;
 using AudioGuide.API.Errors;
 using AudioGuide.API.Middleware;
@@ -25,6 +26,7 @@ if(!Uri.TryCreate(builder.Configuration["PublicBaseUrl"],UriKind.Absolute,out va
 if(!builder.Environment.IsDevelopment()&&publicUrl.Scheme!="https")throw new InvalidOperationException("PublicBaseUrl must use HTTPS in production.");
 builder.Services.AddDbContext<AppDbContext>(o=>o.UseSqlServer(connection,s=>s.UseNetTopologySuite()));
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<QrAccessWindow>();
 builder.Services.AddScoped<IPoiRepository,PoiRepository>();builder.Services.AddScoped<IVisitorRepository,VisitorRepository>();
 builder.Services.AddScoped<IAudioGuideService,AudioGuideService>();builder.Services.AddScoped<IPoiManagementService,PoiManagementService>();
 builder.Services.AddScoped<IVisitorService,VisitorService>();builder.Services.AddScoped<IAnalyticsService,AnalyticsService>();

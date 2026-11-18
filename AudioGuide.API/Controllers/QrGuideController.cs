@@ -1,3 +1,4 @@
+using AudioGuide.API.Services;
 using AudioGuide.Core.DTOs;
 using AudioGuide.Core.Interfaces;
 using AudioGuide.Core.Services;
@@ -8,11 +9,16 @@ using QRCoder;
 using System.Text.Json;
 namespace AudioGuide.API.Controllers;
 [ApiController,Route("api/[controller]"),EnableRateLimiting("visitor")]
-public sealed class QrGuideController(IAudioGuideService guide,IVisitorService visitors,IWebHostEnvironment environment,IConfiguration configuration) : ControllerBase {
+public sealed class QrGuideController(IAudioGuideService guide,IVisitorService visitors,IWebHostEnvironment environment,IConfiguration configuration, QrAccessWindow accessWindow) : ControllerBase {
  [HttpGet("scan/{token}")]
  public async Task<IActionResult> Scan(string token,string? lang="vi",bool preview=false){
   if(await visitors.IsBlockedAsync(HttpContext.Visitor().Id,HttpContext.RequestAborted))return StatusCode(403,new{message="Thiết bị đã bị chặn."});
   var language=LanguagePolicy.Normalize(lang);var pois=await guide.MapAsync(token,language,HttpContext.RequestAborted);
+  var access = accessWindow.Admit();
+  Response.Headers.CacheControl = "no-store";
+  if (!access.CanAccess)
+   return StatusCode(403, new { code = "QR_GATE_EXPIRED",
+    message = "Cổng QR đã khóa sau 1 phút. Vui lòng chờ mở lượt mới.", window = access });
   var html=await System.IO.File.ReadAllTextAsync(Path.Combine(environment.WebRootPath,"templates","QrGuideMap.html"),HttpContext.RequestAborted);
   html=html.Replace("{{POIS_JSON}}",JsonSerializer.Serialize(pois,new JsonSerializerOptions(JsonSerializerDefaults.Web)))
    .Replace("{{TARGET_LANG}}",language).Replace("{{VOICE_LANG}}",language=="zh"?"zh-CN":language=="en"?"en-US":language+"-"+language.ToUpperInvariant()).Replace("{{UI_BADGE}}","🏛️ DI TÍCH SÀI GÒN");

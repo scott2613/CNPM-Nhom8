@@ -1696,6 +1696,20 @@
             <span>AudioGuide API Console · Công cụ kiểm thử</span>
             <span>Thông số điểm tham quan được cấu hình trong file HTML.</span>
         </footer>
+<section class="glass" id="qrMinutePanel" style="margin:24px auto;padding:26px;max-width:1450px">
+    <h2>Cổng QR · thời hạn 1 phút</h2>
+    <p>Đếm từ lần mở QR hợp lệ đầu tiên hoặc khi bấm Mở cổng. Hết 60 giây, lượt mở QR mới nhận HTTP 403.</p>
+    <p id="qrMinuteStatus" role="status">Đang đọc trạng thái cổng…</p>
+    <div class="toolbar-actions" style="flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" id="qrMinuteOpen">Mở cổng 1 phút</button>
+        <button type="button" class="btn" id="qrMinuteTry">Thử truy cập QR</button>
+        <button type="button" class="btn" id="qrMinuteSimulate">Mô phỏng 0 → 61 giây</button>
+        <button type="button" class="btn" id="qrMinutePrint">In kết quả</button>
+    </div>
+    <p id="qrMinuteControlHelp"></p>
+    <pre id="qrMinuteResults" class="code-box mono" style="white-space:pre-wrap;max-height:340px;overflow:auto" aria-live="polite">Kết quả thử sẽ hiển thị ở đây.</pre>
+</section>
+
     </main>
 
     <!-- Modal kết nối -->
@@ -2629,5 +2643,139 @@
         refreshHostInterface();
         onParametersChange();
     </script>
+<script>
+(() => {
+    const statusLabel = document.getElementById('qrMinuteStatus');
+    const results = document.getElementById('qrMinuteResults');
+    const openButton = document.getElementById('qrMinuteOpen');
+    const simulateButton = document.getElementById('qrMinuteSimulate');
+    let log = [];
+    let currentWindow = null;
+    let deadlineAtBrowser = 0;
+    let polling = false;
+
+    // Reuse the Console connection selected by the presenter.
+    function apiHost() { return state.host.replace(/\/$/, ''); }
+
+    function record(message) {
+        const time = new Date().toLocaleTimeString('vi-VN');
+        log.push('[' + time + '] ' + message);
+        log = log.slice(-60);
+        results.textContent = log.join('\n');
+    }
+
+    function displayWindow(windowState) {
+        currentWindow = windowState;
+        // Calibrate against server time to avoid depending on the visitor's clock.
+        const seconds = windowState.expiresAtUtc
+            ? Math.max(0, Date.parse(windowState.expiresAtUtc) - Date.parse(windowState.serverTimeUtc))
+            : 60000;
+        deadlineAtBrowser = performance.now() + seconds;
+        renderCountdown();
+    }
+
+    function renderCountdown() {
+        if (!currentWindow) return;
+        const remaining = Math.max(0, Math.ceil((deadlineAtBrowser - performance.now()) / 1000));
+        if (currentWindow.state === 'Waiting') {
+            statusLabel.textContent = 'Chưa bắt đầu · QR hợp lệ đầu tiên sẽ mở cửa sổ 60 giây.';
+        } else if (remaining > 0 && currentWindow.canAccess) {
+            statusLabel.textContent = 'Cổng đang mở · còn ' + remaining + ' giây.';
+        } else {
+            statusLabel.textContent = 'Cổng đã khóa · lượt mở QR mới bị từ chối.';
+        }
+    }
+
+    async function request(path, method = 'GET') {
+        const response = await fetch(apiHost() + '/api/qr-access/' + path, {
+            method, cache: 'no-store'
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || ('HTTP ' + response.status));
+        return data;
+    }
+
+    async function refresh() {
+        if (polling || document.hidden) return;
+        polling = true;
+        try {
+            const data = await request('status');
+            displayWindow(data.window);
+            openButton.disabled = !data.canControl;
+            simulateButton.disabled = !data.canControl;
+            document.getElementById('qrMinuteControlHelp').textContent = data.canControl
+                ? 'Mở cổng tạo một cửa sổ 60 giây mới. Mô phỏng chỉ kiểm tra quy tắc theo các mốc thời gian.'
+                : 'Nút mở cổng và mô phỏng dùng trong môi trường Development của API.';
+        } catch {
+            currentWindow = null;
+            statusLabel.textContent = 'Chưa đọc được trạng thái. Kiểm tra Kết nối API.';
+        } finally { polling = false; }
+    }
+
+    openButton.addEventListener('click', async () => {
+        openButton.disabled = true;
+        try {
+            const data = await request('open', 'POST');
+            displayWindow(data);
+            record('Đã mở cổng. Hết hạn lúc ' + new Date(data.expiresAtUtc).toLocaleTimeString('vi-VN') + '.');
+        } catch (error) { record(error.message); }
+        finally { await refresh(); }
+    });
+
+    document.getElementById('qrMinuteTry').addEventListener('click', async () => {
+        const button = document.getElementById('qrMinuteTry');
+        button.disabled = true;
+        try {
+            const response = await fetch(apiHost()
+                + '/api/QrGuide/scan/MUSEUM-MAIN-ENTRY?lang=vi&preview=true', {
+                cache: 'no-store'
+            });
+            if (response.ok) {
+                await response.text();
+                record('THỬ THẬT · HTTP ' + response.status + ' · Cho phép mở QR.');
+            } else {
+                const data = await response.json().catch(() => ({}));
+                record('THỬ THẬT · HTTP ' + response.status + ' · ' + (data.message || data.detail || 'Truy cập bị từ chối.'));
+            }
+        } catch (error) { record('THỬ THẬT · Lỗi kết nối: ' + error.message); }
+        finally { button.disabled = false; await refresh(); }
+    });
+
+    simulateButton.addEventListener('click', async () => {
+        simulateButton.disabled = true;
+        try {
+            const data = await request('simulate', 'POST');
+            record('MÔ PHỎNG · Kiểm tra cùng quy tắc thời hạn của API.');
+            for (const row of data.results) {
+                record(row.elapsedSeconds + ' giây → '
+                    + (row.canAccess ? 'CHO PHÉP' : 'KHÓA CỔNG')
+                    + ' · HTTP dự kiến ' + row.expectedHttpStatus
+                    + ' · Còn ' + row.remainingSeconds + ' giây.');
+            }
+        } catch (error) { record(error.message); }
+        finally { await refresh(); }
+    });
+
+    document.getElementById('qrMinutePrint').addEventListener('click', () => {
+        const printWindow = window.open('', '_blank', 'width=850,height=650');
+        if (!printWindow) { record('Cho phép cửa sổ bật lên để in kết quả.'); return; }
+        printWindow.document.title = 'Kết quả kiểm tra cổng QR';
+        const heading = printWindow.document.createElement('h1');
+        heading.textContent = 'Kết quả kiểm tra cổng QR 1 phút';
+        const content = printWindow.document.createElement('pre');
+        content.style.whiteSpace = 'pre-wrap';
+        content.textContent = statusLabel.textContent + '\n\n' + results.textContent;
+        printWindow.document.body.append(heading, content);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+    });
+
+    void refresh();
+    setInterval(renderCountdown, 250);
+    setInterval(() => void refresh(), 3000);
+})();
+
+</script>
 </body>
 </html>
